@@ -33,7 +33,7 @@ const formatCurrency = (value: number) => {
 }
 
 const AddEntriesDialog = ({ onAddMultipleEntries, stockItems, lastOrderNumber }: { 
-    onAddMultipleEntries: (entries: Omit<TransportEntry, 'id'|'createdAt'|'date'|'type'|'sender'>[], date: Date, company: 'ANS' | 'HAL' | 'MX' | 'NH', order: number, sender: 'Tee' | 'YU') => Promise<void>;
+    onAddMultipleEntries: (entries: Omit<TransportEntry, 'id'|'createdAt'|'date'|'type'|'sender'|'order'>[], date: Date, company: 'ANS' | 'HAL' | 'MX' | 'NH', order: number, sender: 'Tee' | 'YU') => Promise<void>;
     stockItems: StockItem[];
     lastOrderNumber: number;
 }) => {
@@ -443,6 +443,8 @@ export default function AutoPartsTransportPage() {
             .reduce((total, row) => total + ((row.cost || 0) * (row.quantity || 1)), 0);
     }, [filteredEntries]);
 
+    const transportRemainingProfit = useMemo(() => transportRemaining - transportRemainingCost, [transportRemaining, transportRemainingCost]);
+
     const handleTransportRowChange = async (id: string, updatedFields: Partial<TransportEntry>) => {
         try {
             await updateAutoPartsTransportEntry(id, updatedFields);
@@ -593,8 +595,8 @@ export default function AutoPartsTransportPage() {
                                 <span className="font-semibold text-lg">ລວມຕົ້ນທຶນ</span>
                                 <span className="font-bold text-lg text-orange-600">{formatCurrency(transportTotalCost)}</span>
                             </div>
-                            <div className="flex justify-between items-center p-4 bg-muted rounded-md">
-                                <span className="font-semibold text-lg">ກຳໄລ</span>
+                             <div className="flex justify-between items-center p-4 bg-green-100/50 border border-green-200 rounded-md">
+                                <span className="font-semibold text-lg text-green-800">ກຳໄລທັງໝົດ</span>
                                 <span className={`font-bold text-lg ${transportProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(transportProfit)}</span>
                             </div>
                              <div className="flex justify-between items-center p-4 bg-muted rounded-md">
@@ -604,6 +606,10 @@ export default function AutoPartsTransportPage() {
                             <div className="flex justify-between items-center p-4 bg-red-100/50 border border-red-200 rounded-md">
                                 <span className="font-semibold text-lg text-red-800">ຕົ້ນທຶນຄົງເຫຼືອ</span>
                                 <span className="font-bold text-lg text-red-700">{formatCurrency(transportRemainingCost)}</span>
+                            </div>
+                             <div className="flex justify-between items-center p-4 bg-yellow-100/50 border border-yellow-200 rounded-md">
+                                <span className="font-semibold text-lg text-yellow-800">ກຳໄລຄົງຄ້າງ</span>
+                                <span className={`font-bold text-lg ${transportRemainingProfit >= 0 ? 'text-yellow-700' : 'text-red-700'}`}>{formatCurrency(transportRemainingProfit)}</span>
                             </div>
                         </CardContent>
                     </Card>
