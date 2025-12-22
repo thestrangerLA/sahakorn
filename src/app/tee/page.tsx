@@ -21,7 +21,7 @@ export default function TeePage() {
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 w-full max-w-4xl">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 w-full max-w-6xl">
           <Link href="/tee/central-account">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -44,6 +44,19 @@ export default function TeePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ຈັດການບັນຊີການສຶກສາ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+           <Link href="/tee/thai-student-account">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ບັນຊີໄທ ນັກສຶກສາ</CardTitle>
+                <Users className="h-8 w-8 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ຈັດການບັນຊີນັກສຶກສາໄທ
                 </p>
               </CardContent>
             </Card>
