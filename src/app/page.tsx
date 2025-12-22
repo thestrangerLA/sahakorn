@@ -142,7 +142,7 @@ export default function Home() {
                 <p className="text-muted-foreground">ຈັດການຂໍ້ມູນທຸລະກິດອາໄຫຼລົດ</p>
             </BusinessCard>
             
-            <BusinessCard title="Tee" href="#" icon={<Briefcase className="h-8 w-8 text-primary" />}>
+            <BusinessCard title="Tee" href="/tee" icon={<Briefcase className="h-8 w-8 text-primary" />}>
                 <p className="text-muted-foreground">ຈັດການຂໍ້ມູນທຸລະກິດຂອງ Tee</p>
             </BusinessCard>
         </div>
