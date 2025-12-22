@@ -91,7 +91,7 @@ export default function Home() {
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 w-full max-w-screen-2xl">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 w-full max-w-screen-2xl">
             <BusinessCard title="ທຸລະກິດທ່ອງທ່ຽວ" href="/tour" icon={<FerrisWheel className="h-8 w-8 text-primary" />}>
                  {loading ? <Skeleton className="h-24 w-full" /> : tourSummary ? (
                     <div className="space-y-1 text-sm">
@@ -140,6 +140,10 @@ export default function Home() {
             
             <BusinessCard title="ທຸລະກິດ ອາໄຫຼລົດ" href="/autoparts" icon={<Wrench className="h-8 w-8 text-primary" />}>
                 <p className="text-muted-foreground">ຈັດການຂໍ້ມູນທຸລະກິດອາໄຫຼລົດ</p>
+            </BusinessCard>
+            
+            <BusinessCard title="Tee" href="#" icon={<Briefcase className="h-8 w-8 text-primary" />}>
+                <p className="text-muted-foreground">ຈັດການຂໍ້ມູນທຸລະກິດຂອງ Tee</p>
             </BusinessCard>
         </div>
       </main>
