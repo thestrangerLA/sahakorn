@@ -6,17 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Landmark, Wallet, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Briefcase, Combine } from "lucide-react"
+import { ArrowLeft, Landmark, Wallet, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Combine, ArrowUpCircle, ArrowDownCircle, ChevronDown } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Textarea } from "@/components/ui/textarea"
-import { format, startOfDay } from "date-fns"
+import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { listenToCentralAccountSummary, updateCentralAccountSummary, listenToCentralTransactions, addCentralTransaction, updateCentralTransaction, deleteCentralTransaction } from '@/services/centralAccountancyService';
 import type { AccountSummary, Transaction } from '@/lib/types';
@@ -45,6 +45,7 @@ export default function CentralAccountPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({ type: 'expense', description: '', amount: 0 });
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+    const [historyDisplayMonth, setHistoryDisplayMonth] = useState<Date>(new Date());
 
     useEffect(() => {
         const unsubscribeSummary = listenToCentralAccountSummary(setSummary);
@@ -55,10 +56,21 @@ export default function CentralAccountPage() {
         };
     }, []);
 
-    const totalBalance = useMemo(() => {
-        if (!summary) return 0;
-        return (summary.cash || 0) + (summary.transfer || 0);
-    }, [summary]);
+    const filteredTransactions = useMemo(() => {
+        const start = startOfMonth(historyDisplayMonth);
+        const end = endOfMonth(historyDisplayMonth);
+        return transactions.filter(tx => isWithinInterval(tx.date, { start, end }));
+    }, [transactions, historyDisplayMonth]);
+
+    const totalIncome = useMemo(() => {
+        return transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+
+    const totalExpense = useMemo(() => {
+        return transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+    
+    const netTotal = useMemo(() => totalIncome - totalExpense, [totalIncome, totalExpense]);
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -108,6 +120,50 @@ export default function CentralAccountPage() {
         }
     };
     
+    const MonthYearSelector = () => {
+        const currentYear = getYear(new Date());
+        const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+        years.push(2025);
+        const uniqueYears = [...new Set(years)].sort();
+
+        const months = Array.from({ length: 12 }, (_, i) => setMonth(new Date(), i));
+
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                        {format(historyDisplayMonth, "LLLL yyyy")}
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {uniqueYears.map(year => (
+                         <DropdownMenuSub key={year}>
+                            <DropdownMenuSubTrigger>
+                                <span>{year + 543}</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    {months.map(month => (
+                                        <DropdownMenuItem 
+                                            key={getMonth(month)} 
+                                            onClick={() => {
+                                                const newDate = new Date(year, getMonth(month), 1);
+                                                setHistoryDisplayMonth(newDate);
+                                            }}
+                                        >
+                                            {format(month, "LLLL")}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                             </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
+    };
+    
     if (!summary) {
         return <div className="flex items-center justify-center h-screen">ກຳລັງໂຫລດຂໍ້ມູນ...</div>;
     }
@@ -121,10 +177,10 @@ export default function CentralAccountPage() {
                 <h1 className="text-xl font-bold tracking-tight">ບັນຊີກອງກາງ</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                     <SummaryCard title="ລາຍຮັບ" value={formatCurrency(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
-                     <SummaryCard title="ລາຍຈ່າຍ" value={formatCurrency(transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
-                     <SummaryCard title="ລວມເງິນທັງໝົດ" value={formatCurrency(totalBalance)} icon={<Combine className="h-5 w-5 text-blue-600" />} />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                     <SummaryCard title="ລາຍຮັບ" value={formatCurrency(totalIncome)} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
+                     <SummaryCard title="ລາຍຈ່າຍ" value={formatCurrency(totalExpense)} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
+                     <SummaryCard title="ລວມເງິນທັງໝົດ" value={formatCurrency(netTotal)} icon={<Combine className="h-5 w-5 text-blue-600" />} />
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
@@ -165,8 +221,12 @@ export default function CentralAccountPage() {
                         </CardContent>
                     </Card>
                     <Card className="lg:col-span-2">
-                        <CardHeader>
-                            <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
+                        <CardHeader className="flex flex-row justify-between items-center">
+                            <div>
+                                <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
+                                <CardDescription>ລາຍການທຸລະກຳສຳລັບເດືອນທີ່ເລືອກ</CardDescription>
+                            </div>
+                            <MonthYearSelector />
                         </CardHeader>
                         <CardContent>
                              <Table>
@@ -180,7 +240,7 @@ export default function CentralAccountPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {transactions.map(tx => (
+                                    {filteredTransactions.map(tx => (
                                         <TableRow key={tx.id} className={tx.type === 'income' ? 'bg-green-50/50' : 'bg-red-50/50'}>
                                             <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
                                             <TableCell className="font-medium">{tx.description}</TableCell>
@@ -200,7 +260,7 @@ export default function CentralAccountPage() {
                                     ))}
                                 </TableBody>
                             </Table>
-                            {transactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
+                            {filteredTransactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
                         </CardContent>
                     </Card>
                 </div>
