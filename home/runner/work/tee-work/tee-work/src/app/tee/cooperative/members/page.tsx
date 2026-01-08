@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfDay } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, PlusCircle, ChevronRight, MoreHorizontal, Trash2 } from "lucide-react";
+import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
+import { ArrowLeft, Users, Calendar as CalendarIcon, PlusCircle, ChevronRight, MoreHorizontal, Trash2, PiggyBank, ChevronDown } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
-import { listenToCooperativeDeposits, addCooperativeDeposit } from '@/services/cooperativeDepositService';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 const formatCurrency = (value: number) => {
@@ -106,6 +108,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
 export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
+    const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
     const { toast } = useToast();
 
     useEffect(() => {
@@ -121,9 +124,19 @@ export default function CooperativeMembersPage() {
         return members.map(member => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
             const totalDeposit = memberDeposits.reduce((sum, d) => sum + d.amount, member.deposit);
-            return { ...member, totalDeposit };
+            return { ...member, totalDeposit, deposits: memberDeposits };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
     }, [members, deposits]);
+    
+    const filteredDeposits = (memberDeposits: CooperativeDeposit[]) => {
+        const start = startOfMonth(displayMonth);
+        const end = endOfMonth(displayMonth);
+        return memberDeposits.filter(d => isWithinInterval(d.date, { start, end }));
+    };
+    
+    const grandTotalDeposits = useMemo(() => {
+        return membersWithTotalDeposits.reduce((sum, m) => sum + m.totalDeposit, 0);
+    }, [membersWithTotalDeposits]);
 
 
     const handleAddMember = async (member: Omit<CooperativeMember, 'id' | 'createdAt'>) => {
@@ -132,10 +145,61 @@ export default function CooperativeMembersPage() {
 
     const handleDeleteMember = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        if (window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສະມາຊິກຄົນນີ້?")) {
+        if (window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສະມາຊິກຄົນນີ້? ການກະທຳນີ້ຈະລຶບຂໍ້ມູນເງິນຝາກທັງໝົດຂອງສະມາຊິກຄົນນີ້ອອກໄປນຳ.")) {
             await deleteCooperativeMember(id);
             toast({ title: "ລຶບສະມາຊິກສຳເລັດ" });
         }
+    };
+    
+    const handleDeleteDeposit = async (id: string) => {
+        if (window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການຝາກເງິນນີ້?")) {
+            await deleteCooperativeDeposit(id);
+            toast({ title: "ລຶບລາຍການສຳເລັດ" });
+        }
+    };
+    
+    const MonthYearSelector = () => {
+        const currentYear = getYear(new Date());
+        const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+        years.push(2025);
+        const uniqueYears = [...new Set(years)].sort();
+
+        const months = Array.from({ length: 12 }, (_, i) => setMonth(new Date(), i));
+
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                        {format(displayMonth, "LLLL yyyy")}
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {uniqueYears.map(year => (
+                         <DropdownMenuSub key={year}>
+                            <DropdownMenuSubTrigger>
+                                <span>{year + 543}</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    {months.map(month => (
+                                        <DropdownMenuItem 
+                                            key={getMonth(month)} 
+                                            onClick={() => {
+                                                const newDate = new Date(year, getMonth(month), 1);
+                                                setDisplayMonth(newDate);
+                                            }}
+                                        >
+                                            {format(month, "LLLL")}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                             </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
     };
     
     return (
@@ -148,49 +212,98 @@ export default function CooperativeMembersPage() {
                 </Button>
                 <h1 className="text-xl font-bold tracking-tight">ສະມາຊິກ ແລະ ເງິນຝາກ</h1>
                  <div className="ml-auto flex items-center gap-2">
+                    <MonthYearSelector />
                     <AddMemberDialog onAddMember={handleAddMember} />
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 mb-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">ສະມາຊິກທັງໝົດ</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{members.length} ຄົນ</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">ຍອດເງິນຝາກລວມທັງໝົດ</CardTitle>
+                            <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(grandTotalDeposits)} KIP</div>
+                        </CardContent>
+                    </Card>
+                </div>
                 <Card>
                     <CardHeader>
                         <CardTitle>ລາຍຊື່ສະມາຊິກ</CardTitle>
                         <CardDescription>ກົດທີ່ລາຍການເພື່ອເບິ່ງປະຫວັດການຝາກເງິນ</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>ລະຫັດ</TableHead>
-                                    <TableHead>ຊື່-ນາມສະກຸນ</TableHead>
-                                    <TableHead>ວັນທີສະໝັກ</TableHead>
-                                    <TableHead className="text-right">ຍອດເງິນຝາກລວມ</TableHead>
-                                    <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {membersWithTotalDeposits.map(member => (
-                                    <TableRow key={member.id} className="cursor-pointer hover:bg-muted/50">
-                                        <TableCell onClick={() => window.location.href=`/tee/cooperative/members/${member.id}`} className="font-mono">{member.memberId}</TableCell>
-                                        <TableCell onClick={() => window.location.href=`/tee/cooperative/members/${member.id}`} className="font-medium">{member.name}</TableCell>
-                                        <TableCell onClick={() => window.location.href=`/tee/cooperative/members/${member.id}`}>{format(member.joinDate, 'dd/MM/yyyy')}</TableCell>
-                                        <TableCell onClick={() => window.location.href=`/tee/cooperative/members/${member.id}`} className="text-right font-mono">{formatCurrency(member.totalDeposit)} KIP</TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
-                                                    <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); window.location.href=`/tee/cooperative/members/${member.id}`}}>ເບິ່ງລາຍລະອຽດ</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-500" onSelect={(e) => handleDeleteMember(e, member.id)}>ລຶບ</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <Accordion type="single" collapsible className="w-full">
+                             {membersWithTotalDeposits.map(member => {
+                                const monthlyDeposits = filteredDeposits(member.deposits);
+                                return (
+                                <AccordionItem value={member.id} key={member.id}>
+                                    <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="text-left">
+                                                <p className="font-semibold">{member.name} <span className="font-mono text-xs text-muted-foreground">({member.memberId})</span></p>
+                                                <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(member.joinDate, 'dd/MM/yyyy')}</p>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right">
+                                                    <p className="font-semibold">{formatCurrency(member.totalDeposit)} KIP</p>
+                                                    <p className="text-sm text-muted-foreground">ຍອດລວມ</p>
+                                                </div>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
+                                                        <DropdownMenuItem onSelect={() => window.location.href = `/tee/cooperative/members/${member.id}`}>ເບິ່ງໜ້າລາຍລະອຽດ</DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-red-500" onSelect={(e) => handleDeleteMember(e, member.id)}>ລຶບສະມາຊິກ</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 bg-muted/20">
+                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {format(displayMonth, 'LLLL')}</h4>
+                                         {monthlyDeposits.length > 0 ? (
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>ວັນທີ</TableHead>
+                                                        <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
+                                                        <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {monthlyDeposits.map(deposit => (
+                                                        <TableRow key={deposit.id}>
+                                                            <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
+                                                            <TableCell>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
+                                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                         ) : (
+                                             <p className="text-sm text-muted-foreground text-center py-4">ບໍ່ມີການຝາກເງິນໃນເດືອນນີ້.</p>
+                                         )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )})}
+                        </Accordion>
                          {membersWithTotalDeposits.length === 0 && (
                             <div className="text-center text-muted-foreground py-16">
                                 ຍັງບໍ່ມີສະມາຊິກ. ກົດ "ເພີ່ມສະມາຊິກ" ເພື່ອເລີ່ມຕົ້ນ.
