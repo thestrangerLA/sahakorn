@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, PlusCircle, ChevronRight, MoreHorizontal, Trash2, PiggyBank, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, ChevronRight, MoreHorizontal, PiggyBank, ChevronDown } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
@@ -315,3 +315,5 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
+
+    
