@@ -219,9 +219,6 @@ export default function CooperativeLoansPage() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); handleRowClick(loan.id); }}>
-                                                            ເບິ່ງລາຍລະອຽດ
-                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem 
                                                             className="text-red-500" 
                                                             onSelect={(e) => { e.stopPropagation(); handleDeleteClick(loan); }}
