@@ -19,7 +19,6 @@ import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMemb
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AddDepositDialog } from './_components/AddDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -31,7 +30,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
     const [memberId, setMemberId] = useState('');
     const [name, setName] = useState('');
     const [joinDate, setJoinDate] = useState<Date | undefined>(new Date());
-    const [deposit, setDeposit] = useState(0);
+    const [deposits, setDeposits] = useState({ kip: 0, thb: 0, usd: 0 });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,14 +44,15 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
                 memberId,
                 name,
                 joinDate: startOfDay(joinDate),
-                deposit
+                deposits,
             });
             toast({ title: "ເພີ່ມສະມາຊິກສຳເລັດ" });
             setOpen(false);
+            // Reset form
             setMemberId('');
             setName('');
             setJoinDate(new Date());
-            setDeposit(0);
+            setDeposits({ kip: 0, thb: 0, usd: 0 });
         } catch (error) {
             console.error("Error adding member:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -92,8 +92,12 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
                         </Popover>
                     </div>
                      <div className="grid gap-2">
-                        <Label htmlFor="deposit">ເງິນຝາກເລີ່ມຕົ້ນ</Label>
-                        <Input id="deposit" type="number" value={deposit || ''} onChange={e => setDeposit(Number(e.target.value))} />
+                        <Label>ເງິນຝາກເລີ່ມຕົ້ນ</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                           <Input type="number" placeholder="KIP" value={deposits.kip || ''} onChange={e => setDeposits(p => ({...p, kip: Number(e.target.value)}))} />
+                           <Input type="number" placeholder="THB" value={deposits.thb || ''} onChange={e => setDeposits(p => ({...p, thb: Number(e.target.value)}))} />
+                           <Input type="number" placeholder="USD" value={deposits.usd || ''} onChange={e => setDeposits(p => ({...p, usd: Number(e.target.value)}))} />
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>ຍົກເລີກ</Button>
@@ -104,6 +108,86 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
         </Dialog>
     );
 };
+
+const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
+  memberName: string;
+}) => {
+    const { toast } = useToast();
+    const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
+    const [kip, setKip] = useState(0);
+    const [thb, setThb] = useState(0);
+    const [usd, setUsd] = useState(0);
+
+    const handleSubmit = async () => {
+        if (!depositDate) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
+            return;
+        }
+
+        try {
+            await onAddDeposit({
+                date: startOfDay(depositDate),
+                kip,
+                thb,
+                usd,
+            });
+            toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
+            onOpenChange(false);
+            setDepositDate(new Date());
+            setKip(0);
+            setThb(0);
+            setUsd(0);
+        } catch (error) {
+            console.error("Error adding deposit:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>ເພີ່ມເງິນຝາກ: {memberName}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label>ວັນທີຝາກ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {depositDate ? format(depositDate, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={depositDate} onSelect={setDepositDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (KIP)</Label>
+                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (THB)</Label>
+                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (USD)</Label>
+                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
+                    <Button onClick={handleSubmit}>ບັນທຶກ</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
@@ -125,8 +209,12 @@ export default function CooperativeMembersPage() {
     const membersWithTotalDeposits = useMemo(() => {
         return members.map(member => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
-            const totalDeposit = memberDeposits.reduce((sum, d) => sum + d.amount, member.deposit);
-            return { ...member, totalDeposit, deposits: memberDeposits };
+            const totalDeposits = {
+                kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
+                thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
+                usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
+            };
+            return { ...member, totalDeposits, deposits: memberDeposits };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
     }, [members, deposits]);
     
@@ -137,7 +225,12 @@ export default function CooperativeMembersPage() {
     };
     
     const grandTotalDeposits = useMemo(() => {
-        return membersWithTotalDeposits.reduce((sum, m) => sum + m.totalDeposit, 0);
+        return membersWithTotalDeposits.reduce((sum, m) => {
+            sum.kip += m.totalDeposits.kip;
+            sum.thb += m.totalDeposits.thb;
+            sum.usd += m.totalDeposits.usd;
+            return sum;
+        }, { kip: 0, thb: 0, usd: 0 });
     }, [membersWithTotalDeposits]);
 
 
@@ -160,14 +253,13 @@ export default function CooperativeMembersPage() {
         }
     };
     
-    const handleAddDeposit = async (amount: number, date: Date) => {
+    const handleAddDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
         if (!selectedMember) return;
         try {
             await addCooperativeDeposit({
                 memberId: selectedMember.id,
                 memberName: selectedMember.name,
-                date: date,
-                amount: amount,
+                ...deposit
             });
             toast({ title: "ເພີ່ມເງິນຝາກສຳເລັດ" });
         } catch (error) {
@@ -254,8 +346,10 @@ export default function CooperativeMembersPage() {
                             <CardTitle className="text-sm font-medium">ຍອດເງິນຝາກລວມທັງໝົດ</CardTitle>
                             <PiggyBank className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(grandTotalDeposits)} KIP</div>
+                        <CardContent className="grid grid-cols-2 gap-x-4">
+                            <p className="text-lg font-bold">KIP: {formatCurrency(grandTotalDeposits.kip)}</p>
+                            <p className="text-lg font-bold">THB: {formatCurrency(grandTotalDeposits.thb)}</p>
+                            <p className="text-lg font-bold">USD: {formatCurrency(grandTotalDeposits.usd)}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -277,9 +371,10 @@ export default function CooperativeMembersPage() {
                                                 <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(member.joinDate, 'dd/MM/yyyy')}</p>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <p className="font-semibold">{formatCurrency(member.totalDeposit)} KIP</p>
-                                                    <p className="text-sm text-muted-foreground">ຍອດລວມ</p>
+                                                <div className="text-right text-xs">
+                                                    <p>KIP: <span className="font-semibold">{formatCurrency(member.totalDeposits.kip)}</span></p>
+                                                    <p>THB: <span className="font-semibold">{formatCurrency(member.totalDeposits.thb)}</span></p>
+                                                    <p>USD: <span className="font-semibold">{formatCurrency(member.totalDeposits.usd)}</span></p>
                                                 </div>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -302,7 +397,9 @@ export default function CooperativeMembersPage() {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>ວັນທີ</TableHead>
-                                                        <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
+                                                        <TableHead className="text-right">KIP</TableHead>
+                                                        <TableHead className="text-right">THB</TableHead>
+                                                        <TableHead className="text-right">USD</TableHead>
                                                         <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                                                     </TableRow>
                                                 </TableHeader>
@@ -310,7 +407,9 @@ export default function CooperativeMembersPage() {
                                                     {monthlyDeposits.map(deposit => (
                                                         <TableRow key={deposit.id}>
                                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
                                                             <TableCell>
                                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
                                                                     <Trash2 className="h-4 w-4 text-red-500" />
