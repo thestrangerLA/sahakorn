@@ -48,9 +48,11 @@ export default function CooperativeLoansPage() {
                 </Button>
                 <h1 className="text-xl font-bold tracking-tight">ລະບົບສິນເຊື່ອສະຫະກອນ</h1>
                 <div className="ml-auto">
-                    <Button size="sm">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        ສ້າງຄຳຮ້ອງສິນເຊື່ອ
+                    <Button size="sm" asChild>
+                        <Link href="/tee/cooperative/loans/new">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            ສ້າງຄຳຮ້ອງສິນເຊື່ອ
+                        </Link>
                     </Button>
                 </div>
             </header>

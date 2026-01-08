@@ -8,7 +8,9 @@ import {
     doc, 
     orderBy,
     where,
-    Timestamp
+    Timestamp,
+    addDoc,
+    serverTimestamp,
 } from 'firebase/firestore';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
@@ -52,6 +54,17 @@ export const listenToCooperativeLoanTypes = (callback: (types: LoanType[]) => vo
         callback(types);
     });
     return unsubscribe;
+};
+
+export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
+    const newLoan = {
+        ...loanData,
+        status: 'submitted',
+        createdAt: serverTimestamp(),
+        applicationDate: Timestamp.fromDate(loanData.applicationDate),
+    };
+    const docRef = await addDoc(loansCollectionRef, newLoan);
+    return docRef.id;
 };
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
