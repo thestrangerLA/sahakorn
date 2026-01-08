@@ -80,7 +80,7 @@ export default function LoanDetailPage() {
     
     const handleMakePayment = async () => {
         if (!loan || !repaymentDate || repaymentAmount <= 0) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ ແລະ ປ້ອນຈຳນວນເງິນທີ່ຖືກຕ້ອງ", variant: "destructive" });
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຖືກຕ້ອງ", variant: "destructive" });
             return;
         }
         
@@ -118,10 +118,9 @@ export default function LoanDetailPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <StatCard title="ເງິນກູ້ຢືມ" value={`${formatCurrency(loan.amount)} KIP`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="%ກຳໄລ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
-                    <StatCard title="ໄລຍະເວລາ" value={`${loan.term} ເດືອນ`} icon={<Calendar className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ຍອດຄ້າງຊຳລະ" value={`${formatCurrency(outstandingBalance)} KIP`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                 </div>
                 
@@ -165,20 +164,6 @@ export default function LoanDetailPage() {
                                 <CardTitle>ຊຳລະສິນເຊື່ອ</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="repayment-date">ວັນທີຊຳລະ</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {repaymentDate ? format(repaymentDate, "PPP") : <span>ເລືອກວັນທີ</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={repaymentDate} onSelect={setRepaymentDate} initialFocus showOutsideDays={false} />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
                                  <div className="grid gap-2">
                                     <Label htmlFor="repayment-amount">ຈຳນວນເງິນ</Label>
                                     <Input id="repayment-amount" type="number" value={repaymentAmount || ''} onChange={(e) => setRepaymentAmount(Number(e.target.value))} />
