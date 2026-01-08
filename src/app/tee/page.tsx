@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -57,6 +58,32 @@ export default function TeePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ຈັດການບັນຊີນັກສຶກສາໄທ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/tee/thai-student-debtors">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ລູກໜີ້/ເຈົ້າໜີ້ (ນັກສຶກສາໄທ)</CardTitle>
+                <Users className="h-8 w-8 text-cyan-500" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ຈັດການລາຍການລູກໜີ້ ແລະ ເຈົ້າໜີ້ຂອງນັກສຶກສາໄທ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="#">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ສະຫະກອນ</CardTitle>
+                <Users className="h-8 w-8 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ຈັດການຂໍ້ມູນສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
