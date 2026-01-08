@@ -100,8 +100,7 @@ export default function CooperativeLoansPage() {
         router.push(`/tee/cooperative/loans/${loanId}`);
     };
     
-    const handleDeleteClick = (e: Event, loan: Loan) => {
-        e.stopPropagation();
+    const handleDeleteClick = (loan: Loan) => {
         setLoanToDelete(loan);
     };
 
@@ -145,7 +144,7 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                      {currencies.map(c => (
                         <Card key={c}>
                             <CardHeader>
@@ -220,12 +219,12 @@ export default function CooperativeLoansPage() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem onSelect={() => handleRowClick(loan.id)}>
+                                                        <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); handleRowClick(loan.id); }}>
                                                             ເບິ່ງລາຍລະອຽດ
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem 
                                                             className="text-red-500" 
-                                                            onSelect={(e) => handleDeleteClick(e, loan)}
+                                                            onSelect={(e) => { e.stopPropagation(); handleDeleteClick(loan); }}
                                                         >
                                                             ລົບ
                                                         </DropdownMenuItem>
