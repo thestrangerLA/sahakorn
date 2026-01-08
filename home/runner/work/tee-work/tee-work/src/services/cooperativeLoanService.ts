@@ -15,6 +15,10 @@ import {
     runTransaction,
     increment,
     updateDoc,
+    deleteDoc,
+    getDocs,
+    writeBatch,
+    limit
 } from 'firebase/firestore';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
@@ -89,6 +93,21 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
     return docRef.id;
 };
 
+export const deleteLoan = async (loanId: string) => {
+    const batch = writeBatch(db);
+
+    const loanDocRef = doc(db, 'cooperativeLoans', loanId);
+    batch.delete(loanDocRef);
+
+    const repaymentsQuery = query(repaymentsCollectionRef, where('loanId', '==', loanId));
+    const repaymentDocs = await getDocs(repaymentsQuery);
+    repaymentDocs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+}
+
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
     const q = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -118,16 +137,20 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy("repaymentDate", "desc"));
+        // Query for all repayments for the loan
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
         const repaymentDocs = await getDocs(q);
-        const lastRepayment = repaymentDocs.docs.length > 0 ? repaymentDocs.docs[0].data() as LoanRepayment : null;
 
-        const currentBalance = lastRepayment ? lastRepayment.outstandingBalance : loan.amount * (1 + (loan.interestRate / 100));
+        // Sort on the client side
+        const allRepayments = repaymentDocs.docs.map(doc => doc.data() as LoanRepayment).sort((a,b) => b.repaymentDate.toMillis() - a.repaymentDate.toMillis());
+        
+        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
 
-        // For simplicity in this implementation, interest isn't calculated dynamically based on time.
-        // It's a simple deduction from the total amount. A real system would need more complex interest logic.
-        const interest = 0; 
-        const principal = amountPaid;
+        const currentBalance = lastRepayment 
+            ? lastRepayment.outstandingBalance 
+            : loan.amount * (1 + (loan.interestRate || 0) / 100);
+
+        const principal = amountPaid; // Simplified principal calculation
         
         const newOutstandingBalance = currentBalance - principal;
         
@@ -137,7 +160,7 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             repaymentDate: Timestamp.fromDate(repaymentDate),
             amountPaid,
             principal,
-            interest,
+            interest: 0, // Interest calculation is simplified
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
