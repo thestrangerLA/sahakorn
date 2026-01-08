@@ -17,7 +17,8 @@ import {
     updateDoc,
     deleteDoc,
     getDocs,
-    writeBatch
+    writeBatch,
+    limit
 } from 'firebase/firestore';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
@@ -136,18 +137,16 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
-        const repaymentDocsSnapshot = await getDocs(q);
-        
-        const allRepayments = repaymentDocsSnapshot.docs.map(doc => doc.data() as LoanRepayment).sort((a, b) => b.repaymentDate.toMillis() - a.repaymentDate.toMillis());
+        // Query for the most recent repayment to get the last outstanding balance
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy("repaymentDate", "desc"), limit(1));
+        const repaymentDocs = await getDocs(q);
+        const lastRepayment = repaymentDocs.docs.length > 0 ? repaymentDocs.docs[0].data() as LoanRepayment : null;
 
-        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
-        const totalPaidSoFar = allRepayments.reduce((sum, r) => sum + r.amountPaid, 0);
+        const currentBalance = lastRepayment 
+            ? lastRepayment.outstandingBalance 
+            : loan.amount * (1 + (loan.interestRate || 0) / 100);
 
-        const currentBalance = totalLoanAmountWithInterest - totalPaidSoFar;
-        
-        const interest = 0; 
-        const principal = amountPaid;
+        const principal = amountPaid; // Simplified principal calculation
         
         const newOutstandingBalance = currentBalance - principal;
         
@@ -157,7 +156,7 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             repaymentDate: Timestamp.fromDate(repaymentDate),
             amountPaid,
             principal,
-            interest,
+            interest: 0, // Interest calculation is simplified
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
