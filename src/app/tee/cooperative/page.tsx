@@ -37,7 +37,7 @@ export default function CooperativePage() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="#">
+          <Link href="/tee/cooperative/members">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກທັງໝົດ</CardTitle>

@@ -48,6 +48,19 @@ export interface TransportEntry {
     sender?: 'Tee' | 'YU';
 }
 
+export interface CodEntry {
+    id: string;
+    company: 'ANS' | 'HAL' | 'MX' | 'NH';
+    type: 'pending' | 'collected' | 'returned';
+    date: Date;
+    customerName: string;
+    description: string;
+    amount: number;
+    isPaidToOffice: boolean;
+    createdAt: Date;
+}
+
+
 export interface CashCalculatorState {
     id: string;
     counts: Record<string, number>;
@@ -205,4 +218,13 @@ export interface Customer {
   name: string;
   address: string;
   phone: string;
+}
+
+export interface CooperativeMember {
+  id: string;
+  memberId: string;
+  name: string;
+  joinDate: Date;
+  deposit: number;
+  createdAt: Date;
 }
