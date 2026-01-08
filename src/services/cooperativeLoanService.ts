@@ -25,6 +25,9 @@ import {
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const loanTypesCollectionRef = collection(db, 'cooperativeLoanTypes');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+
 
 export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
@@ -148,7 +151,7 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
 };
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
-    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
+    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
@@ -160,6 +163,8 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 createdAt: (data.createdAt as Timestamp)?.toDate()
             } as LoanRepayment);
         });
+        // Sort on the client-side
+        repayments.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
         callback(repayments);
     });
     return unsubscribe;
@@ -167,6 +172,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: number; date: Date}[]) => {
   
+  // ✅ 1. ดึง repayment ล่าสุดนอก transaction
   const q = query(
     repaymentsCollectionRef,
     where("loanId", "==", loanId),
