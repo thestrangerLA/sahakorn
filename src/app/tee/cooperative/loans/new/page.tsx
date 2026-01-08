@@ -66,40 +66,35 @@ export default function NewLoanPage() {
     const router = useClientRouter();
 
     const [members, setMembers] = useState<CooperativeMember[]>([]);
-    const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-    const [selectedLoanTypeId, setSelectedLoanTypeId] = useState<string | undefined>();
     const [amount, setAmount] = useState<number>(0);
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>(new Date());
     const [loanCode, setLoanCode] = useState('');
+    const [interestRate, setInterestRate] = useState<number>(0);
+    const [term, setTerm] = useState<number>(12);
 
     useEffect(() => {
         const unsubscribeMembers = listenToCooperativeMembers(setMembers);
-        const unsubscribeLoanTypes = listenToCooperativeLoanTypes(setLoanTypes);
         return () => {
             unsubscribeMembers();
-            unsubscribeLoanTypes();
         };
     }, []);
-    
-    const selectedLoanType = loanTypes.find(lt => lt.id === selectedLoanTypeId);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedMemberId || !selectedLoanTypeId || !amount || !applicationDate || !loanCode) {
+        if (!selectedMemberId || !amount || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
-        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
+        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'loanTypeId'> = {
             memberId: selectedMemberId,
-            loanTypeId: selectedLoanTypeId,
             loanCode,
             amount,
-            interestRate: selectedLoanType?.interestRate || 0,
-            term: selectedLoanType?.maxTerm || 12,
+            interestRate: interestRate,
+            term: term,
             purpose,
             applicationDate: startOfDay(applicationDate),
         };
@@ -151,15 +146,6 @@ export default function NewLoanPage() {
                                     </Popover>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>ປະເພດສິນເຊື່ອ</Label>
-                                    <Select onValueChange={setSelectedLoanTypeId} value={selectedLoanTypeId}>
-                                        <SelectTrigger><SelectValue placeholder="ເລືອກປະເພດສິນເຊື່ອ" /></SelectTrigger>
-                                        <SelectContent>
-                                            {loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid gap-2">
                                     <Label htmlFor="loanCode">ລະຫັດກູ້ຢືມ</Label>
                                     <Input id="loanCode" value={loanCode} onChange={e => setLoanCode(e.target.value)} placeholder="ຕົວຢ່າງ: LN-001" required />
                                 </div>
@@ -167,24 +153,20 @@ export default function NewLoanPage() {
                                     <Label htmlFor="amount">ຈຳນວນເງິນກູ້ (KIP)</Label>
                                     <Input id="amount" type="number" value={amount || ''} onChange={e => setAmount(Number(e.target.value))} required />
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="interestRate">ອັດຕາດອກເບ້ຍ (%/ປີ)</Label>
+                                    <Input id="interestRate" type="number" value={interestRate || ''} onChange={e => setInterestRate(Number(e.target.value))} required />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="term">ໄລຍະເວລາ (ເດືອນ)</Label>
+                                    <Input id="term" type="number" value={term || ''} onChange={e => setTerm(Number(e.target.value))} required />
+                                </div>
                             </div>
                              <div className="grid gap-2">
                                 <Label htmlFor="purpose">ຈຸດປະສົງ</Label>
                                 <Textarea id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
                             </div>
-                            {selectedLoanType && (
-                                <Card className="bg-muted/50">
-                                    <CardHeader className="p-4"><CardTitle className="text-md">ລາຍລະອຽດປະເພດສິນເຊື່ອ</CardTitle></CardHeader>
-                                    <CardContent className="p-4 pt-0 text-sm space-y-2">
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <p><strong>ວົງເງິນສູງສຸດ:</strong> {formatCurrency(selectedLoanType.maxAmount)}</p>
-                                            <p><strong>ອັດຕາດອກເບ້ຍ:</strong> {selectedLoanType.interestRate}% / ປີ</p>
-                                            <p><strong>ໄລຍະເວລາສູງສຸດ:</strong> {selectedLoanType.maxTerm} ເດືອນ</p>
-                                        </div>
-                                        {selectedLoanType.detail && <p className="text-muted-foreground pt-2"><strong>ລາຍລະອຽດ:</strong> {selectedLoanType.detail}</p>}
-                                    </CardContent>
-                                </Card>
-                            )}
+                            
                             <div className="flex justify-end pt-4">
                                 <Button type="submit"><Handshake className="mr-2 h-4 w-4"/> ຍື່ນຄຳຮ້ອງ</Button>
                             </div>

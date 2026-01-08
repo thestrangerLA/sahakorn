@@ -1,5 +1,6 @@
 
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -225,7 +226,6 @@ export interface CooperativeMember {
   memberId: string;
   name: string;
   joinDate: Date;
-  initialShareCapital: number;
   deposits: {
     kip: number;
     thb: number;
@@ -263,7 +263,7 @@ export interface Loan {
 
 export interface LoanType {
   id: string;
-  name: 'Emergency' | 'Ordinary' | 'Special';
+  name: string;
   maxAmount: number;
   interestRate: number;
   maxTerm: number; // in months
