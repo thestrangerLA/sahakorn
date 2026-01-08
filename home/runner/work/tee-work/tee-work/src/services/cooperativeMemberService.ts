@@ -15,7 +15,6 @@ import {
     getDocs,
     getDoc,
     where,
-    runTransaction,
     writeBatch
 } from 'firebase/firestore';
 import { startOfDay } from 'date-fns';

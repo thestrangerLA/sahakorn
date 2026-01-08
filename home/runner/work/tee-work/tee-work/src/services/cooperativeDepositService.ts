@@ -15,7 +15,6 @@ import {
     runTransaction,
     increment
 } from 'firebase/firestore';
-import { startOfDay } from 'date-fns';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
 const membersCollectionRef = collection(db, 'cooperativeMembers');

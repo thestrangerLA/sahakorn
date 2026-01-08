@@ -11,17 +11,193 @@ import { ArrowLeft, Users, Trash2, PlusCircle, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, getYear } from "date-fns";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
-import { getCooperativeMember, listenToCooperativeDepositsForMember } from '@/services/cooperativeMemberService';
+import { getCooperativeMember, listenToCooperativeDepositsForMember, updateCooperativeMember } from '@/services/cooperativeMemberService';
 import { addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
-import { AddDepositDialog } from './_components/AddDepositDialog';
-import { EditMemberDialog } from './_components/EditMemberDialog';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { startOfDay } from 'date-fns';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
+
+const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
+  memberName: string;
+}) => {
+    const { toast } = useToast();
+    const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
+    const [kip, setKip] = useState(0);
+    const [thb, setThb] = useState(0);
+    const [usd, setUsd] = useState(0);
+
+    const handleSubmit = async () => {
+        if (!depositDate) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
+            return;
+        }
+
+        try {
+            await onAddDeposit({
+                date: startOfDay(depositDate),
+                kip,
+                thb,
+                usd,
+            });
+            toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
+            onOpenChange(false);
+            setDepositDate(new Date());
+            setKip(0);
+            setThb(0);
+            setUsd(0);
+        } catch (error) {
+            console.error("Error adding deposit:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>ເພີ່ມເງິນຝາກ: {memberName}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label>ວັນທີຝາກ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {depositDate ? format(depositDate, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={depositDate} onSelect={setDepositDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (KIP)</Label>
+                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (THB)</Label>
+                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (USD)</Label>
+                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
+                    <Button onClick={handleSubmit}>ບັນທຶກ</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+const EditMemberDialog = ({ open, onOpenChange, member, onMemberUpdate }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  member: CooperativeMember;
+  onMemberUpdate: (updatedMember: CooperativeMember) => void;
+}) => {
+    const { toast } = useToast();
+    const [formData, setFormData] = useState(member);
+    
+    useEffect(() => {
+        setFormData(member);
+    }, [member, open]);
+
+    const handleChange = (field: keyof typeof formData, value: any) => {
+        setFormData(prev => ({...prev, [field]: value}));
+    };
+    
+    const handleDepositChange = (currency: 'kip' | 'thb' | 'usd', value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            deposits: {
+                ...prev.deposits,
+                [currency]: Number(value) || 0
+            }
+        }));
+    };
+
+    const handleSave = async () => {
+        try {
+            const dataToUpdate = {
+                memberId: formData.memberId,
+                name: formData.name,
+                joinDate: startOfDay(formData.joinDate),
+                deposits: formData.deposits
+            };
+            await updateCooperativeMember(member.id, dataToUpdate);
+            onMemberUpdate(formData); // Update local state in parent
+            toast({ title: 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' });
+            onOpenChange(false);
+        } catch (error) {
+            console.error("Failed to update member:", error);
+            toast({ title: 'ເກີດຂໍ້ຜິດພາດ', variant: 'destructive' });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>ແກ້ໄຂຂໍ້ມູນສະມາຊິກ</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="grid gap-2">
+                        <Label htmlFor="edit-memberId">ລະຫັດສະມາຊິກ</Label>
+                        <Input id="edit-memberId" value={formData.memberId} onChange={e => handleChange('memberId', e.target.value)} required />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-name">ຊື່-ນາມສະກຸນ</Label>
+                        <Input id="edit-name" value={formData.name} onChange={e => handleChange('name', e.target.value)} required />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-joinDate">ວັນທີສະໝັກ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {formData.joinDate ? format(new Date(formData.joinDate), "PPP") : <span>ເລືອກວັນທີ</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={new Date(formData.joinDate)} onSelect={(d) => handleChange('joinDate', d)} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>ຍອດເງິນຝາກເລີ່ມຕົ້ນ</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <Input placeholder="KIP" type="number" value={formData.deposits.kip || ''} onChange={(e) => handleDepositChange('kip', e.target.value)} />
+                            <Input placeholder="THB" type="number" value={formData.deposits.thb || ''} onChange={(e) => handleDepositChange('thb', e.target.value)} />
+                            <Input placeholder="USD" type="number" value={formData.deposits.usd || ''} onChange={(e) => handleDepositChange('usd', e.target.value)} />
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
+                    <Button onClick={handleSave}>ບັນທຶກ</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function MemberDetailPage() {
     const { toast } = useToast();
@@ -153,7 +329,7 @@ export default function MemberDetailPage() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardDescription>ວັນທີສະໝັກ</CardDescription>
-                            <CardTitle className="text-2xl">{format(member.joinDate, 'dd MMMM yyyy')}</CardTitle>
+                            <CardTitle className="text-2xl">{format(new Date(member.joinDate), 'dd MMMM yyyy')}</CardTitle>
                         </CardHeader>
                     </Card>
                 </div>
@@ -243,6 +419,7 @@ export default function MemberDetailPage() {
                 open={isEditMemberOpen}
                 onOpenChange={setEditMemberOpen}
                 member={member}
+                onMemberUpdate={setMember}
             />
         </div>
     );

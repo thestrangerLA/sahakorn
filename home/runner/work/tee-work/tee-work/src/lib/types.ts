@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
