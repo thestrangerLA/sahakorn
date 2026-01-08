@@ -249,7 +249,7 @@ export interface Loan {
   memberId: string;
   loanTypeId: string;
   loanCode: string;
-  amount: number;
+  amount: CurrencyValues;
   interestRate: number; // yearly
   term: number; // in months
   purpose: string;
@@ -273,9 +273,9 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: number;
-  principal: number;
-  interest: number;
-  outstandingBalance: number;
+  amountPaid: CurrencyValues;
+  principal: CurrencyValues;
+  interest: CurrencyValues;
+  outstandingBalance: CurrencyValues;
   createdAt: Date;
 }

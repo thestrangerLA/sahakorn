@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal, Banknote, CheckCircle, Hourglass } from "lucide-react";
 import { format } from 'date-fns';
-import type { Loan, CooperativeMember, LoanRepayment } from '@/lib/types';
+import type { Loan, CooperativeMember, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeLoans, deleteLoan, listenToAllRepayments } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,9 @@ import { useToast } from '@/hooks/use-toast';
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
+
+const initialCurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -65,21 +68,31 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const summary = useMemo(() => {
-        const totalLoanAmount = loans.reduce((sum, loan) => sum + loan.amount, 0);
         const activeLoans = loans.filter(l => l.status === 'disbursed' || l.status === 'overdue').length;
         const pendingLoans = loans.filter(l => l.status === 'submitted').length;
-        
-        const totalPaidAmount = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
+
+        const totalLoanAmount = loans.reduce((sum, loan) => {
+            currencies.forEach(c => sum[c] += loan.amount?.[c] || 0);
+            return sum;
+        }, { ...initialCurrencyValues });
+
+        const totalPaidAmount = repayments.reduce((sum, r) => {
+            currencies.forEach(c => sum[c] += r.amountPaid?.[c] || 0);
+            return sum;
+        }, { ...initialCurrencyValues });
 
         const totalOutstandingAmount = loans
             .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
             .reduce((sum, l) => {
-                const totalLoanWithInterest = l.amount + (l.amount * (l.interestRate || 0) / 100);
-                const paidForThisLoan = repayments
-                    .filter(r => r.loanId === l.id)
-                    .reduce((paidSum, r) => paidSum + r.amountPaid, 0);
-                return sum + (totalLoanWithInterest - paidForThisLoan);
-            }, 0);
+                currencies.forEach(c => {
+                    const totalLoanWithInterest = (l.amount[c] || 0) + ((l.amount[c] || 0) * (l.interestRate || 0) / 100);
+                    const paidForThisLoan = repayments
+                        .filter(r => r.loanId === l.id)
+                        .reduce((paidSum, r) => paidSum + (r.amountPaid[c] || 0), 0);
+                    sum[c] += totalLoanWithInterest - paidForThisLoan;
+                });
+                return sum;
+            }, { ...initialCurrencyValues });
 
 
         return { totalLoanAmount, activeLoans, pendingLoans, totalPaidAmount, totalOutstandingAmount };
@@ -135,26 +148,32 @@ export default function CooperativeLoansPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອທັງໝົດ</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.totalLoanAmount)} KIP</p></CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ສິນເຊື່ອທີ່ເຄື່ອນໄຫວ</CardTitle></CardHeader>
+                     {currencies.map(c => (
+                        <Card key={c}>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອທັງໝົດ ({c.toUpperCase()})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.totalLoanAmount[c])}</p></CardContent>
+                        </Card>
+                     ))}
+                     <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ສິນເຊື່ອເຄື່ອນໄຫວ</CardTitle></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{summary.activeLoans}</p></CardContent>
                     </Card>
                      <Card>
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ລໍຖ້າອະນຸມັດ</CardTitle></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{summary.pendingLoans}</p></CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອຈ່າຍແລ້ວ</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalPaidAmount)} KIP</p></CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອຄົງເຫຼືອ</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalOutstandingAmount)} KIP</p></CardContent>
-                    </Card>
+                     {currencies.map(c => (
+                        <Card key={`paid-${c}`}>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຈ່າຍແລ້ວ ({c.toUpperCase()})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalPaidAmount[c])}</p></CardContent>
+                        </Card>
+                     ))}
+                      {currencies.map(c => (
+                        <Card key={`outstanding-${c}`}>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຄົງເຫຼືອ ({c.toUpperCase()})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalOutstandingAmount[c])}</p></CardContent>
+                        </Card>
+                     ))}
                 </div>
                 <Card>
                     <CardHeader>
@@ -182,9 +201,20 @@ export default function CooperativeLoansPage() {
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell className="font-mono">{loan.loanCode}</TableCell>
                                             <TableCell>{memberMap[loan.memberId] || 'N/A'}</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(loan.amount)}</TableCell>
+                                            <TableCell className="text-right">
+                                                {currencies.map(c => {
+                                                    const amount = loan.amount?.[c];
+                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
                                             <TableCell className="text-right">{loan.interestRate}%</TableCell>
-                                            <TableCell className="text-right text-green-600">{formatCurrency(loan.amount * (loan.interestRate / 100))}</TableCell>
+                                            <TableCell className="text-right text-green-600">
+                                                 {currencies.map(c => {
+                                                    const amount = loan.amount?.[c] || 0;
+                                                    const profit = amount * (loan.interestRate / 100);
+                                                    return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell><Badge>{loan.status}</Badge></TableCell>
                                             <TableCell className="text-right">
