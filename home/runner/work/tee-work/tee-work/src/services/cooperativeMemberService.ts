@@ -33,7 +33,8 @@ export const listenToCooperativeMembers = (callback: (items: CooperativeMember[]
                 id: doc.id, 
                 ...data,
                 joinDate: (data.joinDate as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
             } as CooperativeMember);
         });
         callback(members);
@@ -45,12 +46,13 @@ export const addCooperativeMember = async (member: Omit<CooperativeMember, 'id' 
     const memberWithTimestamp = {
         ...member,
         joinDate: Timestamp.fromDate(member.joinDate),
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        deposits: member.deposits || { kip: 0, thb: 0, usd: 0 }
     };
     await addDoc(membersCollectionRef, memberWithTimestamp);
 };
 
-export const updateCooperativeMember = async (id: string, updatedFields: Partial<Omit<CooperativeMember, 'id' | 'createdAt' | 'deposit'>>) => {
+export const updateCooperativeMember = async (id: string, updatedFields: Partial<Omit<CooperativeMember, 'id' | 'createdAt' | 'deposits'>>) => {
     const memberDoc = doc(db, 'cooperativeMembers', id);
     const dataToUpdate: any = { ...updatedFields };
 
@@ -85,6 +87,7 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
             ...data,
             joinDate: (data.joinDate as Timestamp).toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
+            deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
         } as CooperativeMember;
     }
     return null;

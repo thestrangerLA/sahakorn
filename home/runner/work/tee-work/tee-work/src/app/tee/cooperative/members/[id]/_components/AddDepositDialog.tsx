@@ -15,34 +15,44 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar as CalendarIcon, PlusCircle } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { format, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import type { CooperativeDeposit } from '@/lib/types';
 
 interface AddDepositDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddDeposit: (amount: number, date: Date) => Promise<void>;
+  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
   memberName: string;
 }
 
 export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName }: AddDepositDialogProps) {
     const { toast } = useToast();
     const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
-    const [amount, setAmount] = useState(0);
+    const [kip, setKip] = useState(0);
+    const [thb, setThb] = useState(0);
+    const [usd, setUsd] = useState(0);
 
     const handleSubmit = async () => {
-        if (!depositDate || amount <= 0) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ ແລະ ປ້ອນຈຳນວນເງິນ", variant: "destructive" });
+        if (!depositDate) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
             return;
         }
 
         try {
-            await onAddDeposit(amount, startOfDay(depositDate));
+            await onAddDeposit({
+                date: startOfDay(depositDate),
+                kip,
+                thb,
+                usd,
+            });
             toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
             onOpenChange(false);
             setDepositDate(new Date());
-            setAmount(0);
+            setKip(0);
+            setThb(0);
+            setUsd(0);
         } catch (error) {
             console.error("Error adding deposit:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -71,8 +81,16 @@ export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName 
                         </Popover>
                     </div>
                      <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນຝາກ</Label>
-                        <Input type="number" value={amount || ''} onChange={e => setAmount(Number(e.target.value))} />
+                        <Label>ຈຳນວນເງິນ (KIP)</Label>
+                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (THB)</Label>
+                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (USD)</Label>
+                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -83,4 +101,3 @@ export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName 
         </Dialog>
     );
 }
-

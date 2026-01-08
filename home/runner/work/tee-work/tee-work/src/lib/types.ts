@@ -220,3 +220,26 @@ export interface Customer {
   phone: string;
 }
 
+export interface CooperativeMember {
+  id: string;
+  memberId: string;
+  name: string;
+  joinDate: Date;
+  deposits: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
+  createdAt: Date;
+}
+
+export interface CooperativeDeposit {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: Date;
+  kip: number;
+  thb: number;
+  usd: number;
+  createdAt: Date;
+}
