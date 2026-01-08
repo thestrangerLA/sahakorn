@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal, Banknote, CheckCircle, Hourglass } from "lucide-react";
 import { format } from 'date-fns';
-import type { Loan, CooperativeMember } from '@/lib/types';
-import { listenToCooperativeLoans, deleteLoan } from '@/services/cooperativeLoanService';
+import type { Loan, CooperativeMember, LoanRepayment } from '@/lib/types';
+import { listenToCooperativeLoans, deleteLoan, listenToAllRepayments } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
 import { useClientRouter } from '@/hooks/useClientRouter';
@@ -38,6 +38,7 @@ const formatCurrency = (value: number) => {
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
+    const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useClientRouter();
@@ -48,9 +49,11 @@ export default function CooperativeLoansPage() {
     useEffect(() => {
         const unsubscribeLoans = listenToCooperativeLoans(setLoans, () => setLoading(false));
         const unsubscribeMembers = listenToCooperativeMembers(setMembers);
+        const unsubscribeRepayments = listenToAllRepayments(setRepayments);
         return () => {
             unsubscribeLoans();
             unsubscribeMembers();
+            unsubscribeRepayments();
         };
     }, []);
 
@@ -65,8 +68,30 @@ export default function CooperativeLoansPage() {
         const totalLoanAmount = loans.reduce((sum, loan) => sum + loan.amount, 0);
         const activeLoans = loans.filter(l => l.status === 'disbursed' || l.status === 'overdue').length;
         const pendingLoans = loans.filter(l => l.status === 'submitted').length;
-        return { totalLoanAmount, activeLoans, pendingLoans };
-    }, [loans]);
+        
+        const repaymentsByLoan = repayments.reduce((acc, r) => {
+            if (!acc[r.loanId]) {
+                acc[r.loanId] = 0;
+            }
+            acc[r.loanId] += r.amountPaid;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const totalPaidAmount = loans
+            .filter(l => l.status === 'paid_off')
+            .reduce((sum, l) => sum + l.amount, 0);
+
+        const totalOutstandingAmount = loans
+            .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
+            .reduce((sum, l) => {
+                const totalLoanWithInterest = l.amount * (1 + (l.interestRate || 0) / 100);
+                const paidAmount = repaymentsByLoan[l.id] || 0;
+                return sum + (totalLoanWithInterest - paidAmount);
+            }, 0);
+
+
+        return { totalLoanAmount, activeLoans, pendingLoans, totalPaidAmount, totalOutstandingAmount };
+    }, [loans, repayments]);
 
     const handleRowClick = (loanId: string) => {
         router.push(`/tee/cooperative/loans/${loanId}`);
@@ -117,7 +142,7 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-3 mb-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
                     <Card>
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອທັງໝົດ</CardTitle></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.totalLoanAmount)} KIP</p></CardContent>
@@ -126,9 +151,17 @@ export default function CooperativeLoansPage() {
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ສິນເຊື່ອທີ່ເຄື່ອນໄຫວ</CardTitle></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{summary.activeLoans}</p></CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ສິນເຊື່ອທີ່ລໍຖ້າອະນຸມັດ</CardTitle></CardHeader>
+                     <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ລໍຖ້າອະນຸມັດ</CardTitle></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{summary.pendingLoans}</p></CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອຈ່າຍແລ້ວ</CardTitle></CardHeader>
+                        <CardContent><p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalPaidAmount)} KIP</p></CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອຄົງເຫຼືອ</CardTitle></CardHeader>
+                        <CardContent><p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalOutstandingAmount)} KIP</p></CardContent>
                     </Card>
                 </div>
                 <Card>

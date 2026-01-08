@@ -52,6 +52,26 @@ export const listenToCooperativeLoans = (
     return unsubscribe;
 };
 
+export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
+    const docRef = doc(db, 'cooperativeLoans', id);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            callback({
+                id: docSnap.id,
+                ...data,
+                applicationDate: (data.applicationDate as Timestamp).toDate(),
+                approvalDate: (data.approvalDate as Timestamp)?.toDate(),
+                disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
+                createdAt: (data.createdAt as Timestamp).toDate(),
+            } as Loan);
+        } else {
+            callback(null);
+        }
+    });
+    return unsubscribe;
+}
+
 export const getLoan = async (id: string): Promise<Loan | null> => {
     const docRef = doc(db, 'cooperativeLoans', id);
     const docSnap = await getDoc(docRef);
@@ -108,6 +128,24 @@ export const deleteLoan = async (loanId: string) => {
     await batch.commit();
 }
 
+export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) => void) => {
+    const q = query(repaymentsCollectionRef, orderBy('repaymentDate', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const repayments: LoanRepayment[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            repayments.push({
+                id: doc.id,
+                ...data,
+                repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
+                createdAt: (data.createdAt as Timestamp)?.toDate()
+            } as LoanRepayment);
+        });
+        callback(repayments);
+    });
+    return unsubscribe;
+};
+
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
     const q = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -137,17 +175,13 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        // Query for all repayments for the loan
         const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
         const repaymentSnapshot = await getDocs(q);
 
-        const allRepayments = repaymentSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                repaymentDate: (data.repaymentDate as Timestamp).toDate()
-            } as LoanRepayment;
-        }).sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
+        const allRepayments = repaymentSnapshot.docs
+            .map(doc => ({ id: doc.id, ...(doc.data() as Omit<LoanRepayment, 'id'>) }))
+            .map(r => ({ ...r, repaymentDate: (r.repaymentDate as unknown as Timestamp).toDate() }))
+            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
         
         const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
 
@@ -157,7 +191,7 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             ? lastRepayment.outstandingBalance 
             : totalLoanAmountWithInterest;
 
-        const principal = amountPaid; // Simplified principal calculation
+        const principal = amountPaid;
         
         const newOutstandingBalance = currentBalance - principal;
         
@@ -167,7 +201,7 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             repaymentDate: Timestamp.fromDate(repaymentDate),
             amountPaid,
             principal,
-            interest: 0, // Interest calculation is simplified
+            interest: 0,
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
