@@ -20,7 +20,7 @@ import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDe
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 const formatCurrency = (value: number) => {
@@ -225,9 +225,14 @@ export default function CooperativeMembersPage() {
         };
     }, []);
     
-    const totalDeposits = useMemo(() => {
-        return deposits.reduce((sum, deposit) => sum + deposit.amount, 0);
-    }, [deposits]);
+    const membersWithTotalDeposits = useMemo(() => {
+        return members.map(member => {
+            const memberDeposits = deposits.filter(d => d.memberId === member.id);
+            const totalDeposit = memberDeposits.reduce((sum, d) => sum + d.amount, member.deposit);
+            return { ...member, totalDeposit, deposits: memberDeposits };
+        }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
+    }, [members, deposits]);
+
 
     const handleAddMember = async (member: Omit<CooperativeMember, 'id' | 'createdAt'>) => {
         await addCooperativeMember(member);
@@ -266,103 +271,66 @@ export default function CooperativeMembersPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0">
-                <Tabs defaultValue="members">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="members">ສະມາຊິກທັງໝົດ</TabsTrigger>
-                        <TabsTrigger value="deposits">ປະຫວັດເງິນຝາກ</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="members">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>ລາຍຊື່ສະມາຊິກ</CardTitle>
-                                <CardDescription>ລາຍຊື່ສະມາຊິກທັງໝົດໃນລະບົບສະຫະກອນ</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>ລະຫັດສະມາຊິກ</TableHead>
-                                            <TableHead>ຊື່-ນາມສະກຸນ</TableHead>
-                                            <TableHead>ວັນທີສະໝັກ</TableHead>
-                                            <TableHead className="text-right">ເງິນຝາກ (KIP)</TableHead>
-                                            <TableHead><span className="sr-only">Actions</span></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {members.length > 0 ? members.map(member => (
-                                            <TableRow key={member.id}>
-                                                <TableCell className="font-mono">{member.memberId}</TableCell>
-                                                <TableCell className="font-medium">{member.name}</TableCell>
-                                                <TableCell>{format(member.joinDate, 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(member.deposit)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
-                                                            <DropdownMenuItem disabled>ແກ້ໄຂ</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => handleDeleteMember(member.id)} className="text-red-500">ລຶບ</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
-                                            </TableRow>
-                                        )) : (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="h-24 text-center">
-                                                    ຍັງບໍ່ມີສະມາຊິກ.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="deposits">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>ປະຫວັດການຝາກເງິນ</CardTitle>
-                                <CardDescription>ລາຍການຝາກເງິນຂອງສະມາຊິກທັງໝົດ. ຍອດລວມ: {formatCurrency(totalDeposits)} KIP</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>ວັນທີ</TableHead>
-                                            <TableHead>ຊື່ສະມາຊິກ</TableHead>
-                                            <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
-                                            <TableHead><span className="sr-only">Actions</span></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {deposits.length > 0 ? deposits.map(deposit => (
-                                            <TableRow key={deposit.id}>
-                                                <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell className="font-medium">{deposit.memberName}</TableCell>
-                                                <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
-                                                <TableCell className="text-right">
-                                                     <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
-                                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        )) : (
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="h-24 text-center">
-                                                    ຍັງບໍ່ມີລາຍການຝາກເງິນ.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>ລາຍຊື່ສະມາຊິກ</CardTitle>
+                        <CardDescription>ກົດທີ່ລາຍການເພື່ອເບິ່ງປະຫວັດການຝາກເງິນ</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Accordion type="single" collapsible className="w-full">
+                            {membersWithTotalDeposits.map(member => (
+                                <AccordionItem value={member.id} key={member.id}>
+                                    <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="text-left">
+                                                <p className="font-semibold">{member.name} <span className="font-mono text-xs text-muted-foreground">({member.memberId})</span></p>
+                                                <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(member.joinDate, 'dd/MM/yyyy')}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-semibold">{formatCurrency(member.totalDeposit)} KIP</p>
+                                                <p className="text-sm text-muted-foreground">ຍອດເງິນຝາກລວມ</p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 bg-muted/20">
+                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນຂອງ {member.name}</h4>
+                                         {member.deposits.length > 0 ? (
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>ວັນທີ</TableHead>
+                                                        <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
+                                                        <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {member.deposits.map(deposit => (
+                                                        <TableRow key={deposit.id}>
+                                                            <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
+                                                            <TableCell>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
+                                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                         ) : (
+                                             <p className="text-sm text-muted-foreground text-center py-4">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ (ນອກຈາກຍອດເລີ່ມຕົ້ນ).</p>
+                                         )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                         {membersWithTotalDeposits.length === 0 && (
+                            <div className="text-center text-muted-foreground py-16">
+                                ຍັງບໍ່ມີສະມາຊິກ. ກົດ "ເພີ່ມສະມາຊິກ" ເພື່ອເລີ່ມຕົ້ນ.
+                            </div>
+                         )}
+                    </CardContent>
+                </Card>
             </main>
         </div>
     );
