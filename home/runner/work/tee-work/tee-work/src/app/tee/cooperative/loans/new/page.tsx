@@ -153,7 +153,9 @@ export default function NewLoanPage() {
                                 <div className="grid gap-2">
                                     <Label>ປະເພດສິນເຊື່ອ</Label>
                                     <Select onValueChange={setSelectedLoanTypeId} value={selectedLoanTypeId}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="ເລືອກປະເພດສິນເຊື່ອ" />
+                                        </SelectTrigger>
                                         <SelectContent>
                                             {loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}
                                         </SelectContent>
@@ -195,5 +197,3 @@ export default function NewLoanPage() {
         </div>
     );
 }
-
-    

@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -240,5 +241,41 @@ export interface CooperativeDeposit {
   kip: number;
   thb: number;
   usd: number;
+  createdAt: Date;
+}
+
+export interface Loan {
+  id: string;
+  memberId: string;
+  loanTypeId: string;
+  loanCode: string;
+  amount: number;
+  interestRate: number; // yearly
+  term: number; // in months
+  purpose: string;
+  applicationDate: Date;
+  approvalDate?: Date;
+  disbursementDate?: Date;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'paid_off' | 'overdue';
+  createdAt: Date;
+}
+
+export interface LoanType {
+  id: string;
+  name: string;
+  maxAmount: number;
+  interestRate: number;
+  maxTerm: number; // in months
+  detail?: string;
+}
+
+export interface LoanRepayment {
+  id: string;
+  loanId: string;
+  repaymentDate: Date;
+  amountPaid: number;
+  principal: number;
+  interest: number;
+  outstandingBalance: number;
   createdAt: Date;
 }
