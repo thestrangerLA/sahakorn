@@ -35,7 +35,7 @@ const StatCard = ({ title, values, icon }: { title: string, values: CurrencyValu
         </CardHeader>
         <CardContent>
             {currencies.map(c => {
-                const amount = values[c];
+                const amount = values[c as keyof typeof values];
                 return amount > 0 ? <div key={c} className="text-2xl font-bold">{formatCurrency(amount)} {c.toUpperCase()}</div> : null
             })}
         </CardContent>
@@ -71,27 +71,33 @@ export default function LoanDetailPage() {
         };
     }, [id]);
 
-    const { totalPaid, outstandingBalance } = useMemo(() => {
-        if (!loan) return { totalPaid: { ...initialCurrencyValues }, outstandingBalance: { ...initialCurrencyValues } };
+    const { totalPaid, outstandingBalance, newOutstandingBalance } = useMemo(() => {
+        if (!loan) return { totalPaid: { ...initialCurrencyValues }, outstandingBalance: { ...initialCurrencyValues }, newOutstandingBalance: { ...initialCurrencyValues } };
 
         const totalLoanAmountWithInterest = { ...initialCurrencyValues };
          currencies.forEach(c => {
-            const amount = loan.amount?.[c] || 0;
+            const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
             totalLoanAmountWithInterest[c] = amount + (amount * (loan.interestRate || 0) / 100);
         });
         
         const totalPaid = repayments.reduce((sum, r) => {
-            currencies.forEach(c => sum[c] += r.amountPaid?.[c] || 0);
+            currencies.forEach(c => {
+                const typedC = c as keyof CurrencyValues;
+                sum[typedC] += r.amountPaid?.[typedC] || 0
+            });
             return sum;
         }, { ...initialCurrencyValues });
 
         const outstanding = { ...initialCurrencyValues };
+        const newOutstanding = { ...initialCurrencyValues };
+
         currencies.forEach(c => {
             outstanding[c] = totalLoanAmountWithInterest[c] - totalPaid[c];
+            newOutstanding[c] = outstanding[c] - (repaymentAmount[c] || 0);
         });
         
-        return { totalPaid, outstandingBalance: outstanding };
-    }, [repayments, loan]);
+        return { totalPaid, outstandingBalance: outstanding, newOutstandingBalance: newOutstanding };
+    }, [repayments, loan, repaymentAmount]);
 
     
     const handleMakePayment = async () => {
@@ -137,7 +143,7 @@ export default function LoanDetailPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    <StatCard title="ເງິນກູ້ຢືມ" values={loan.amount} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
+                    <StatCard title="ເງິນກູ້ຢືມ" values={loan.amount as CurrencyValues} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
                     <Card>
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">%ກຳໄລ</CardTitle><Percent className="h-4 w-4 text-muted-foreground" /></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{loan.interestRate}% / ປີ</p></CardContent>
@@ -165,10 +171,16 @@ export default function LoanDetailPage() {
                                             <TableRow key={r.id}>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell className="text-right">
-                                                    {currencies.map(c => r.amountPaid[c] > 0 && <div key={c}>{formatCurrency(r.amountPaid[c])} {c.toUpperCase()}</div>)}
+                                                    {currencies.map(c => {
+                                                        const amountPaid = r.amountPaid as CurrencyValues;
+                                                        return amountPaid[c] > 0 && <div key={c}>{formatCurrency(amountPaid[c])} {c.toUpperCase()}</div>
+                                                    })}
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">
-                                                     {currencies.map(c => r.outstandingBalance[c] !== 0 && <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>)}
+                                                     {currencies.map(c => {
+                                                        const outstanding = r.outstandingBalance as CurrencyValues;
+                                                        return outstanding[c] !== 0 && <div key={c}>{formatCurrency(outstanding[c])} {c.toUpperCase()}</div>
+                                                     })}
                                                 </TableCell>
                                             </TableRow>
                                         )) : (
@@ -181,7 +193,7 @@ export default function LoanDetailPage() {
                             </CardContent>
                         </Card>
                     </div>
-                     <div className="lg:col-span-1">
+                     <div className="lg:col-span-1 space-y-4">
                         <Card>
                             <CardHeader>
                                 <CardTitle>ຊຳລະສິນເຊື່ອ</CardTitle>
@@ -199,6 +211,14 @@ export default function LoanDetailPage() {
                                     <PlusCircle className="mr-2 h-4 w-4" />
                                     ຢືນຢັນການຊຳລະ
                                 </Button>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>ຍອດເຫຼືອຫຼັງຊຳລະ</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                               <StatCard title="" values={newOutstandingBalance} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                             </CardContent>
                         </Card>
                     </div>
