@@ -135,17 +135,17 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy("repaymentDate", "desc"));
-        const repaymentDocsSnapshot = await getDocs(q); // Use getDocs for transactions
-        const allRepayments = repaymentDocsSnapshot.docs.map(doc => doc.data() as LoanRepayment);
-
-        const totalPrincipalPaid = allRepayments.reduce((sum, r) => sum + r.principal, 0);
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
+        const repaymentDocsSnapshot = await getDocs(q);
         
-        const totalLoanAmount = loan.amount * (1 + (loan.interestRate || 0) / 100);
-        const currentBalance = totalLoanAmount - totalPrincipalPaid;
+        const allRepayments = repaymentDocsSnapshot.docs.map(doc => doc.data() as LoanRepayment).sort((a, b) => b.repaymentDate.toMillis() - a.repaymentDate.toMillis());
+        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
 
+        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
+        const totalPaidSoFar = allRepayments.reduce((sum, r) => sum + r.amountPaid, 0);
 
-        // This is a simplified interest calculation. A real system would need more complex logic.
+        const currentBalance = totalLoanAmountWithInterest - totalPaidSoFar;
+        
         const interest = 0; 
         const principal = amountPaid;
         
