@@ -11,6 +11,9 @@ export const dynamicParams = true;
 export async function generateStaticParams() {
   try {
     const ids = await getAllCooperativeMemberIds();
+    if (ids.length === 0) {
+      return [{ id: 'default' }];
+    }
     return ids;
   } catch (error) {
     console.error("Error fetching static params for cooperative members:", error);

@@ -25,34 +25,41 @@ interface EditMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   member: CooperativeMember;
+  onMemberUpdate: (updatedMember: CooperativeMember) => void;
 }
 
-export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialogProps) {
+export function EditMemberDialog({ open, onOpenChange, member, onMemberUpdate }: EditMemberDialogProps) {
     const { toast } = useToast();
-    const [formData, setFormData] = useState({
-        memberId: member.memberId,
-        name: member.name,
-        joinDate: member.joinDate,
-    });
+    const [formData, setFormData] = useState(member);
     
     useEffect(() => {
-        setFormData({
-            memberId: member.memberId,
-            name: member.name,
-            joinDate: member.joinDate,
-        });
+        setFormData(member);
     }, [member, open]);
 
     const handleChange = (field: keyof typeof formData, value: any) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
+    
+    const handleDepositChange = (currency: 'kip' | 'thb' | 'usd', value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            deposits: {
+                ...prev.deposits,
+                [currency]: Number(value) || 0
+            }
+        }));
+    };
 
     const handleSave = async () => {
         try {
-            await updateCooperativeMember(member.id, {
-                ...formData,
-                joinDate: startOfDay(formData.joinDate)
-            });
+            const dataToUpdate = {
+                memberId: formData.memberId,
+                name: formData.name,
+                joinDate: startOfDay(new Date(formData.joinDate)),
+                deposits: formData.deposits
+            };
+            await updateCooperativeMember(member.id, dataToUpdate);
+            onMemberUpdate(formData); // Update local state in parent
             toast({ title: 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' });
             onOpenChange(false);
         } catch (error) {
@@ -82,13 +89,21 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {formData.joinDate ? format(formData.joinDate, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                    {formData.joinDate ? format(new Date(formData.joinDate), "PPP") : <span>ເລືອກວັນທີ</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={formData.joinDate} onSelect={(d) => handleChange('joinDate', d)} initialFocus />
+                                <Calendar mode="single" selected={new Date(formData.joinDate)} onSelect={(d) => handleChange('joinDate', d)} initialFocus />
                             </PopoverContent>
                         </Popover>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>ຍອດເງິນຝາກເລີ່ມຕົ້ນ</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <Input placeholder="KIP" type="number" value={formData.deposits.kip || ''} onChange={(e) => handleDepositChange('kip', e.target.value)} />
+                            <Input placeholder="THB" type="number" value={formData.deposits.thb || ''} onChange={(e) => handleDepositChange('thb', e.target.value)} />
+                            <Input placeholder="USD" type="number" value={formData.deposits.usd || ''} onChange={(e) => handleDepositChange('usd', e.target.value)} />
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>

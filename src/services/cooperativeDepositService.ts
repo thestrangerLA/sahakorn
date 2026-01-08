@@ -7,7 +7,6 @@ import {
     onSnapshot, 
     query, 
     doc, 
-    updateDoc, 
     deleteDoc, 
     orderBy,
     serverTimestamp,
@@ -30,7 +29,10 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
                 id: doc.id, 
                 ...data,
                 date: (data.date as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                kip: data.kip || 0,
+                thb: data.thb || 0,
+                usd: data.usd || 0,
             } as CooperativeDeposit);
         });
         callback(deposits);
@@ -41,7 +43,6 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
 export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt'>) => {
     
     await runTransaction(db, async (transaction) => {
-        // 1. Add the deposit document
         const depositDocRef = doc(depositsCollectionRef);
         const depositWithTimestamp = {
             ...deposit,
@@ -50,9 +51,6 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
         };
         transaction.set(depositDocRef, depositWithTimestamp);
 
-        // 2. Update the member's total deposit
-        const memberDocRef = doc(membersCollectionRef, deposit.memberId);
-        transaction.update(memberDocRef, { deposit: increment(deposit.amount) });
     });
 };
 
@@ -67,11 +65,7 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         const depositData = depositDoc.data() as CooperativeDeposit;
 
-        // 1. Delete the deposit document
         transaction.delete(depositDocRef);
-
-        // 2. Decrement the member's total deposit
-        const memberDocRef = doc(membersCollectionRef, depositData.memberId);
-        transaction.update(memberDocRef, { deposit: increment(-depositData.amount) });
+        
     });
 };
