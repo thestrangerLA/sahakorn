@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, Handshake, DollarSign, Calendar as CalendarIcon, Percent, Landmark, Banknote, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { Loan, LoanRepayment } from '@/lib/types';
-import { listenToRepaymentsForLoan, getLoan, addLoanRepayment } from '@/services/cooperativeLoanService';
+import { listenToRepaymentsForLoan, addLoanRepayment, listenToLoan } from '@/services/cooperativeLoanService';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
@@ -45,33 +45,29 @@ export default function LoanDetailPage() {
     const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const [repaymentDate, setRepaymentDate] = useState<Date | undefined>(new Date());
     const [repaymentAmount, setRepaymentAmount] = useState(0);
 
     useEffect(() => {
         if (!id) return;
 
-        const fetchLoan = async () => {
-            setLoading(true);
-            const loanData = await getLoan(id);
+        const unsubscribeLoan = listenToLoan(id, (loanData) => {
             if (loanData) {
                 setLoan(loanData);
             }
             setLoading(false);
-        };
-
-        fetchLoan();
+        });
 
         const unsubscribeRepayments = listenToRepaymentsForLoan(id, setRepayments);
         
         return () => {
+            unsubscribeLoan();
             unsubscribeRepayments();
         };
     }, [id]);
 
     const { totalPaid, outstandingBalance } = useMemo(() => {
         if (!loan) return { totalPaid: 0, outstandingBalance: 0 };
-        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
+        const totalLoanAmountWithInterest = loan.amount + (loan.amount * (loan.interestRate || 0) / 100);
         const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
         const outstanding = totalLoanAmountWithInterest - totalPaid;
         return { totalPaid, outstandingBalance: outstanding };
@@ -79,7 +75,8 @@ export default function LoanDetailPage() {
 
     
     const handleMakePayment = async () => {
-        if (!loan || !repaymentDate || repaymentAmount <= 0) {
+        const repaymentDate = new Date();
+        if (!loan || repaymentAmount <= 0) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຖືກຕ້ອງ", variant: "destructive" });
             return;
         }
@@ -88,7 +85,6 @@ export default function LoanDetailPage() {
             await addLoanRepayment(loan.id, repaymentAmount, repaymentDate);
             toast({ title: "ຊຳລະສິນເຊື່ອສຳເລັດ" });
             setRepaymentAmount(0);
-            setRepaymentDate(new Date());
         } catch (error: any) {
             console.error("Error making payment:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: error.message, variant: "destructive" });
