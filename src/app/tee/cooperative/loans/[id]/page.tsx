@@ -19,26 +19,20 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 
+
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
-
-
-const StatCard = ({ title, values, icon }: { title: string, values: CurrencyValues, icon: React.ReactNode }) => (
+const StatCard = ({ title, value, icon }: { title: string, value: string | number, icon: React.ReactNode }) => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
             {icon}
         </CardHeader>
         <CardContent>
-            {currencies.map(c => {
-                const amount = values[c as keyof typeof values];
-                return amount > 0 ? <div key={c} className="text-2xl font-bold">{formatCurrency(amount)} {c.toUpperCase()}</div> : null
-            })}
+            <div className="text-2xl font-bold">{value}</div>
         </CardContent>
     </Card>
 );
@@ -48,7 +42,6 @@ type NewRepayment = {
     date: Date;
     amount: number;
 };
-
 
 export default function LoanDetailPage() {
     const params = useParams();
@@ -79,29 +72,14 @@ export default function LoanDetailPage() {
         };
     }, [id]);
 
-     const { totalPaid, outstandingBalance, loanCurrency, newOutstandingBalance } = useMemo(() => {
-        if (!loan) return { totalPaid: 0, outstandingBalance: 0, loanCurrency: 'kip' as keyof CurrencyValues, newOutstandingBalance: 0 };
-
-        let loanAmount = 0;
-        let determinedCurrency: keyof CurrencyValues = 'kip';
-
-        for (const c of currencies) {
-            if (loan.amount[c] > 0) {
-                loanAmount = loan.amount[c];
-                determinedCurrency = c;
-                break;
-            }
-        }
-        
-        const totalLoanWithInterest = loanAmount * (1 + (loan.interestRate || 0) / 100);
-        
+    const { totalPaid, outstandingBalance, newOutstandingBalance } = useMemo(() => {
+        if (!loan) return { totalPaid: 0, outstandingBalance: 0, newOutstandingBalance: 0 };
+        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
         const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
-
-        const outstanding = totalLoanWithInterest - totalPaid;
+        const outstanding = totalLoanAmountWithInterest - totalPaid;
         const totalNewRepayment = newRepayments.reduce((sum, r) => sum + r.amount, 0);
         const newOutstanding = outstanding - totalNewRepayment;
-        
-        return { totalPaid, outstandingBalance: outstanding, loanCurrency: determinedCurrency, newOutstandingBalance: newOutstanding };
+        return { totalPaid, outstandingBalance: outstanding, newOutstandingBalance: newOutstanding };
     }, [repayments, loan, newRepayments]);
 
     
@@ -118,7 +96,7 @@ export default function LoanDetailPage() {
         }
 
         try {
-            await addLoanRepayment(loan.id, paymentsToSave, loanCurrency);
+            await addLoanRepayment(loan.id, paymentsToSave);
             toast({ title: "ຊຳລະສິນເຊື່ອສຳເລັດ" });
             setNewRepayments([]);
         } catch (error: any) {
@@ -163,15 +141,9 @@ export default function LoanDetailPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    <StatCard title="ເງິນກູ້ຢືມ" values={loan.amount as CurrencyValues} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">%ກຳໄລ</CardTitle><Percent className="h-4 w-4 text-muted-foreground" /></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{loan.interestRate}% / ປີ</p></CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຄ້າງຊຳລະ</CardTitle><Landmark className="h-4 w-4 text-muted-foreground" /></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{formatCurrency(outstandingBalance)} {loanCurrency.toUpperCase()}</p></CardContent>
-                    </Card>
+                    <StatCard title="ເງິນກູ້ຢືມ" value={`${formatCurrency(loan.amount)} KIP`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
+                    <StatCard title="%ກຳໄລ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
+                    <StatCard title="ຍອດຄ້າງຊຳລະ" value={`${formatCurrency(outstandingBalance)} KIP`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                 </div>
                 
                  <div className="grid lg:grid-cols-3 gap-8">
@@ -220,7 +192,7 @@ export default function LoanDetailPage() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>ວັນທີ</TableHead>
-                                            <TableHead className="text-right">ຈຳນວນເງິນ ({loanCurrency.toUpperCase()})</TableHead>
+                                            <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
                                             <TableHead></TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -259,7 +231,7 @@ export default function LoanDetailPage() {
                             </CardHeader>
                             <CardContent>
                                <div className="flex justify-between items-center py-1">
-                                   <span className="text-sm font-medium">{loanCurrency.toUpperCase()}:</span>
+                                   <span className="text-sm font-medium">KIP:</span>
                                    <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance)}</span>
                                </div>
                             </CardContent>

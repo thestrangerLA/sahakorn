@@ -1,6 +1,5 @@
 
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -250,7 +249,7 @@ export interface Loan {
   memberId: string;
   loanTypeId: string;
   loanCode: string;
-  amount: CurrencyValues;
+  amount: number;
   interestRate: number; // yearly
   term: number; // in months
   purpose: string;

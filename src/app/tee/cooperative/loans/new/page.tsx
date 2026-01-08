@@ -15,7 +15,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronsUpDown, Handshake } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay } from "date-fns";
-import type { Loan, LoanType, CooperativeMember, CurrencyValues } from '@/lib/types';
+import type { Loan, LoanType, CooperativeMember } from '@/lib/types';
 import { addLoan, listenToCooperativeLoanTypes } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { useClientRouter } from '@/hooks/useClientRouter';
@@ -68,7 +68,7 @@ export default function NewLoanPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0});
+    const [amount, setAmount] = useState<number>(0);
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>(new Date());
     const [loanCode, setLoanCode] = useState('');
@@ -84,9 +84,8 @@ export default function NewLoanPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0);
-        if (!selectedMemberId || totalAmount <= 0 || !applicationDate || !loanCode) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ ແລະ ຈຳນວນເງິນຕ້ອງຫຼາຍກວ່າ 0", variant: "destructive" });
+        if (!selectedMemberId || !amount || !applicationDate || !loanCode) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
@@ -151,12 +150,8 @@ export default function NewLoanPage() {
                                     <Input id="loanCode" value={loanCode} onChange={e => setLoanCode(e.target.value)} placeholder="ຕົວຢ່າງ: LN-001" required />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>ຈຳນວນເງິນກູ້</Label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <Input type="number" placeholder="KIP" value={amount.kip || ''} onChange={e => setAmount(p => ({...p, kip: Number(e.target.value)}))} />
-                                        <Input type="number" placeholder="THB" value={amount.thb || ''} onChange={e => setAmount(p => ({...p, thb: Number(e.target.value)}))} />
-                                        <Input type="number" placeholder="USD" value={amount.usd || ''} onChange={e => setAmount(p => ({...p, usd: Number(e.target.value)}))} />
-                                    </div>
+                                    <Label htmlFor="amount">ຈຳນວນເງິນກູ້ (KIP)</Label>
+                                    <Input id="amount" type="number" value={amount || ''} onChange={e => setAmount(Number(e.target.value))} required />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="interestRate">ອັດຕາດອກເບ້ຍ (%/ປີ)</Label>
