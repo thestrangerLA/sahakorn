@@ -8,10 +8,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal } from "lucide-react";
 import { format } from 'date-fns';
-import type { Loan } from '@/lib/types';
-import { listenToCooperativeLoans } from '@/services/cooperativeLoanService';
+import type { Loan, CooperativeMember } from '@/lib/types';
+import { listenToCooperativeLoans, deleteLoan } from '@/services/cooperativeLoanService';
+import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
 import { useClientRouter } from '@/hooks/useClientRouter';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -19,13 +38,28 @@ const formatCurrency = (value: number) => {
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
+    const [members, setMembers] = useState<CooperativeMember[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useClientRouter();
+    const { toast } = useToast();
+    
+    const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
 
     useEffect(() => {
-        const unsubscribe = listenToCooperativeLoans(setLoans, () => setLoading(false));
-        return () => unsubscribe();
+        const unsubscribeLoans = listenToCooperativeLoans(setLoans, () => setLoading(false));
+        const unsubscribeMembers = listenToCooperativeMembers(setMembers);
+        return () => {
+            unsubscribeLoans();
+            unsubscribeMembers();
+        };
     }, []);
+
+    const memberMap = useMemo(() => {
+        return members.reduce((acc, member) => {
+            acc[member.id] = member.name;
+            return acc;
+        }, {} as Record<string, string>);
+    }, [members]);
 
     const summary = useMemo(() => {
         const totalLoanAmount = loans.reduce((sum, loan) => sum + loan.amount, 0);
@@ -37,6 +71,32 @@ export default function CooperativeLoansPage() {
     const handleRowClick = (loanId: string) => {
         router.push(`/tee/cooperative/loans/${loanId}`);
     };
+    
+    const handleDeleteClick = (e: React.MouseEvent, loan: Loan) => {
+        e.stopPropagation();
+        setLoanToDelete(loan);
+    };
+
+    const confirmDelete = async () => {
+        if (!loanToDelete) return;
+        try {
+            await deleteLoan(loanToDelete.id);
+            toast({
+                title: "ລົບສິນເຊື່ອສຳເລັດ",
+                description: `ສິນເຊື່ອລະຫັດ ${loanToDelete.loanCode} ໄດ້ຖືກລົບອອກແລ້ວ.`,
+            });
+        } catch (error) {
+            console.error("Error deleting loan:", error);
+            toast({
+                title: "ເກີດຂໍ້ຜິດພາດ",
+                description: "ບໍ່ສາມາດລົບສິນເຊື່ອໄດ້.",
+                variant: "destructive",
+            });
+        } finally {
+            setLoanToDelete(null);
+        }
+    };
+
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -81,10 +141,10 @@ export default function CooperativeLoansPage() {
                                 <TableRow>
                                     <TableHead>ລະຫັດກູ້ຢືມ</TableHead>
                                     <TableHead>ຊື່ສະມາຊິກ</TableHead>
-                                    <TableHead>ປະເພດສິນເຊື່ອ</TableHead>
                                     <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
+                                    <TableHead className="text-right">ການດຳເນີນການ</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -92,13 +152,34 @@ export default function CooperativeLoansPage() {
                                     <TableRow><TableCell colSpan={6} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loans.length > 0 ? (
                                     loans.map(loan => (
-                                        <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer">
+                                        <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell className="font-mono">{loan.loanCode}</TableCell>
-                                            <TableCell>{/* Member Name will be fetched later */}</TableCell>
-                                            <TableCell>{/* Loan Type Name will be fetched later */}</TableCell>
+                                            <TableCell>{memberMap[loan.memberId] || 'N/A'}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(loan.amount)}</TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell><Badge>{loan.status}</Badge></TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <span className="sr-only">Toggle menu</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); handleRowClick(loan.id) }}>
+                                                            ເບິ່ງລາຍລະອຽດ
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem 
+                                                            className="text-red-500" 
+                                                            onSelect={(e) => handleDeleteClick(e, loan)}
+                                                        >
+                                                            ລົບ
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
@@ -109,6 +190,22 @@ export default function CooperativeLoansPage() {
                     </CardContent>
                 </Card>
             </main>
+
+            <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            คุณแน่ใจหรือไม่ว่าต้องการลบสินเชื่อรหัส "{loanToDelete?.loanCode}" ของ "{memberMap[loanToDelete?.memberId || '']}"? 
+                            การกระทำนี้จะลบข้อมูลการชำระคืนทั้งหมดที่เกี่ยวข้องและไม่สามารถย้อนกลับได้
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={(e) => e.stopPropagation()}>ຍົກເລີກ</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete}>ຢືນຢັນ</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

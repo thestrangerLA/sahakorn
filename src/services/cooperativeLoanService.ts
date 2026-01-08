@@ -14,6 +14,10 @@ import {
     getDoc,
     runTransaction,
     increment,
+    updateDoc,
+    deleteDoc,
+    getDocs,
+    writeBatch
 } from 'firebase/firestore';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
@@ -76,10 +80,9 @@ export const listenToCooperativeLoanTypes = (callback: (types: LoanType[]) => vo
     return unsubscribe;
 };
 
-export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'loanTypeId'>) => {
+export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
     const newLoan = {
         ...loanData,
-        loanTypeId: '', // Since we removed it
         status: 'submitted',
         createdAt: serverTimestamp(),
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
@@ -87,6 +90,21 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
     const docRef = await addDoc(loansCollectionRef, newLoan);
     return docRef.id;
 };
+
+export const deleteLoan = async (loanId: string) => {
+    const batch = writeBatch(db);
+
+    const loanDocRef = doc(db, 'cooperativeLoans', loanId);
+    batch.delete(loanDocRef);
+
+    const repaymentsQuery = query(repaymentsCollectionRef, where('loanId', '==', loanId));
+    const repaymentDocs = await getDocs(repaymentsQuery);
+    repaymentDocs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+}
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
     const q = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
@@ -116,31 +134,20 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
         }
 
         const loan = loanDoc.data() as Loan;
-        const monthlyInterestRate = loan.interestRate / 100 / 12;
-
-        const repaymentsQuery = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
-        const repaymentsSnapshot = await getDocs(repaymentsQuery);
-        const allRepayments = repaymentsSnapshot.docs.map(doc => doc.data() as LoanRepayment);
         
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy("repaymentDate", "desc"));
+        const repaymentDocsSnapshot = await getDocs(q); // Use getDocs for transactions
+        const allRepayments = repaymentDocsSnapshot.docs.map(doc => doc.data() as LoanRepayment);
+
         const totalPrincipalPaid = allRepayments.reduce((sum, r) => sum + r.principal, 0);
-        const currentBalance = loan.amount - totalPrincipalPaid;
         
-        if (amountPaid > currentBalance) {
-            // This is a simple check. A more complex system might allow overpayment.
-            // For now, we'll just log a warning and cap the payment.
-            console.warn("Payment amount is greater than outstanding balance. Adjusting payment.");
-            amountPaid = currentBalance;
-        }
+        const totalLoanAmount = loan.amount * (1 + (loan.interestRate || 0) / 100);
+        const currentBalance = totalLoanAmount - totalPrincipalPaid;
 
-        const interest = currentBalance * monthlyInterestRate;
-        let principal = amountPaid - interest;
 
-        if (principal < 0) {
-            principal = 0; // The payment only covered some interest
-        }
-        if(principal > currentBalance){
-            principal = currentBalance;
-        }
+        // This is a simplified interest calculation. A real system would need more complex logic.
+        const interest = 0; 
+        const principal = amountPaid;
         
         const newOutstandingBalance = currentBalance - principal;
         
@@ -155,7 +162,6 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             createdAt: serverTimestamp(),
         });
         
-        // Update loan status if fully paid
         if (newOutstandingBalance <= 0) {
             transaction.update(loanRef, { status: 'paid_off' });
         }
