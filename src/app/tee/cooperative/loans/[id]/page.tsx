@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Handshake, DollarSign, Calendar, Percent, Landmark } from "lucide-react";
+import { ArrowLeft, Handshake, DollarSign, Calendar, Percent, Landmark, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import type { Loan, LoanRepayment } from '@/lib/types';
 import { listenToRepaymentsForLoan } from '@/services/cooperativeLoanService';
@@ -64,6 +64,22 @@ export default function LoanDetailPage() {
     const totalPaid = useMemo(() => repayments.reduce((sum, r) => sum + r.amountPaid, 0), [repayments]);
     const outstandingBalance = useMemo(() => (loan?.amount || 0) - totalPaid, [loan, totalPaid]);
 
+    const monthlyPayment = useMemo(() => {
+        if (!loan || !loan.amount || !loan.interestRate || !loan.term) {
+            return 0;
+        }
+        const P = loan.amount;
+        const i = loan.interestRate / 100 / 12; // Monthly interest rate
+        const n = loan.term;
+
+        if (i === 0) {
+            return P / n;
+        }
+
+        const M = P * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+        return M;
+    }, [loan]);
+
     if (loading) {
         return <div className="text-center p-8">Loading loan details...</div>;
     }
@@ -86,10 +102,11 @@ export default function LoanDetailPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                     <StatCard title="ເງິນກູ້ຢືມ" value={`${formatCurrency(loan.amount)} KIP`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ອັດຕາດອກເບ້ຍ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ໄລຍະເວລາ" value={`${loan.term} ເດືອນ`} icon={<Calendar className="h-4 w-4 text-muted-foreground" />} />
+                    <StatCard title="ຍອດຈ່າຍແຕ່ລະເດືອນ" value={`${formatCurrency(monthlyPayment)} KIP`} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ຍອດຄ້າງຊຳລະ" value={`${formatCurrency(outstandingBalance)} KIP`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                 </div>
                 
