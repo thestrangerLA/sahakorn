@@ -265,13 +265,9 @@ export interface Loan {
   id: string;
   memberId: string;
   loanCode: string;
-  amount: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  principal: Currency;
   interestRate: number; // yearly
-  term: number; // in months
+  termMonths: number; 
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';
@@ -282,16 +278,8 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  principalPaid: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
-  interestPaid: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  principalPaid: Currency;
+  interestPaid: Currency;
   note: string;
   createdAt: Date;
 }

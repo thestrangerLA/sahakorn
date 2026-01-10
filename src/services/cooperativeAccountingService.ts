@@ -10,12 +10,11 @@ export async function createTransaction(
   debitAccountId: string,
   creditAccountId: string,
   amount: Currency,
-  description: string
+  description: string,
+  date: Date,
 ) {
-  const now = new Date()
-
   await addDoc(transactionsCollectionRef, {
-    date: now,
+    date: Timestamp.fromDate(date),
     accountId: debitAccountId,
     type: 'debit',
     amount,
@@ -25,7 +24,7 @@ export async function createTransaction(
   })
 
   await addDoc(transactionsCollectionRef, {
-    date: now,
+    date: Timestamp.fromDate(date),
     accountId: creditAccountId,
     type: 'credit',
     amount,
@@ -83,7 +82,7 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
         
         const currencyKeys: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
         currencyKeys.forEach(currencyKey => {
-            if (tx.amount[currencyKey]) {
+            if (tx.amount && tx.amount[currencyKey]) {
                 balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
             }
         });

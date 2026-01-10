@@ -25,7 +25,7 @@ import { listenToCooperativeTransactions, getAccountBalances, createTransaction 
 import type { Account, Transaction, Currency } from '@/lib/types';
 
 
-const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd'];
+const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -39,10 +39,12 @@ const SummaryCard = ({ title, balances }: { title: string, balances: Currency })
         </CardHeader>
         <CardContent>
             {currencies.map(c => (
+                (balances[c] || 0) !== 0 && (
                 <div key={c} className="text-xs">
                     <span className="font-semibold uppercase">{c}: </span>
                     <span>{formatCurrency(balances[c] || 0)}</span>
                 </div>
+                )
             ))}
         </CardContent>
     </Card>
@@ -77,13 +79,13 @@ export default function CooperativeAccountancyPage() {
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = amount.kip + amount.thb + amount.usd;
+        const totalAmount = amount.kip + amount.thb + amount.usd + amount.cny;
         if (!date || !description || !debitAccountId || !creditAccountId || totalAmount === 0) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
             return;
         }
         try {
-            await createTransaction(debitAccountId, creditAccountId, amount, description);
+            await createTransaction(debitAccountId, creditAccountId, amount, description, date);
             toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
             // Reset form
             setDate(new Date());
@@ -152,10 +154,11 @@ export default function CooperativeAccountancyPage() {
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange('kip', e.target.value)} /></div>
                                     <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange('thb', e.target.value)} /></div>
                                     <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange('usd', e.target.value)} /></div>
+                                    <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange('cny', e.target.value)} /></div>
                                 </div>
 
                                 <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
