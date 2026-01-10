@@ -100,7 +100,7 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
 };
 
 export const listenToCooperativeDepositsForMember = (memberId: string, callback: (deposits: CooperativeDeposit[]) => void) => {
-    const q = query(depositsCollectionRef, where("memberId", "==", memberId), orderBy("date", "desc"));
+    const q = query(depositsCollectionRef, where("memberId", "==", memberId));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const deposits: CooperativeDeposit[] = [];
         querySnapshot.forEach((doc) => {
@@ -114,6 +114,8 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
                 usd: data.usd || 0,
             } as CooperativeDeposit);
         });
+        // Sort on the client-side
+        deposits.sort((a, b) => b.date.getTime() - a.date.getTime());
         callback(deposits);
     });
     return unsubscribe;

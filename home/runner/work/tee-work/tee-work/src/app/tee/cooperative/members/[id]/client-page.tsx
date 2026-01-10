@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -36,7 +35,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
     }, [member.id]);
 
     const totalDeposits = useMemo(() => {
-        if (!member) return { kip: 0, thb: 0, usd: 0, cny: 0 };
+        if (!member) return { kip: 0, thb: 0, usd: 0 };
         return deposits.reduce((sum, d) => {
             sum.kip += d.kip || 0;
             sum.thb += d.thb || 0;
@@ -45,8 +44,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
         }, { 
             kip: member.deposits?.kip || 0, 
             thb: member.deposits?.thb || 0, 
-            usd: member.deposits?.usd || 0 ,
-            cny: 0
+            usd: member.deposits?.usd || 0 
         });
     }, [deposits, member]);
 

@@ -368,7 +368,7 @@ export default function CooperativeMembersPage() {
                                         <div className="flex justify-between items-center w-full">
                                             <div className="text-left">
                                                 <p className="font-semibold">{member.name} <span className="font-mono text-xs text-muted-foreground">({member.memberId})</span></p>
-                                                <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(member.joinDate, 'dd/MM/yyyy')}</p>
+                                                <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(new Date(member.joinDate), 'dd/MM/yyyy')}</p>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-xs">

@@ -51,12 +51,6 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
         };
         transaction.set(depositDocRef, depositWithTimestamp);
 
-        const memberDocRef = doc(membersCollectionRef, deposit.memberId);
-        transaction.update(memberDocRef, { 
-            'deposits.kip': increment(deposit.kip || 0),
-            'deposits.thb': increment(deposit.thb || 0),
-            'deposits.usd': increment(deposit.usd || 0),
-        });
     });
 };
 
@@ -73,11 +67,5 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         transaction.delete(depositDocRef);
         
-        const memberDocRef = doc(membersCollectionRef, depositData.memberId);
-        transaction.update(memberDocRef, { 
-            'deposits.kip': increment(-(depositData.kip || 0)),
-            'deposits.thb': increment(-(depositData.thb || 0)),
-            'deposits.usd': increment(-(depositData.usd || 0)),
-        });
     });
 };

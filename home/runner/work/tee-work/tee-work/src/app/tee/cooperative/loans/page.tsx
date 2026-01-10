@@ -37,8 +37,8 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof Pick<CurrencyValues, 'kip' | 'thb' | 'usd'>)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -90,13 +90,13 @@ export default function CooperativeLoansPage() {
             const principal: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const p = loan.amount?.[c as keyof typeof loan.amount] || 0;
-                principal[c as keyof typeof principal] = p;
+                const p = loan.amount?.[c] || 0;
+                principal[c] = p;
                 const interestAmount = p * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c as keyof typeof principalAndInterest] = p + interestAmount;
+                principalAndInterest[c] = p + interestAmount;
 
-                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
-                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
+                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
             });
             
             const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
@@ -249,7 +249,7 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                              <TableCell className="text-right text-green-500">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    const amount = loan.amount?.[c] || 0;
                                                     const profit = amount * (loan.interestRate / 100);
                                                     return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}

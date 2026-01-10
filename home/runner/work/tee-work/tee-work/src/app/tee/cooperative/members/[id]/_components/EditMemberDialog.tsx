@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -26,7 +25,7 @@ interface EditMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   member: CooperativeMember;
-  onMemberUpdate?: (updatedMember: CooperativeMember) => void;
+  onMemberUpdate: (updatedMember: CooperativeMember) => void;
 }
 
 export function EditMemberDialog({ open, onOpenChange, member, onMemberUpdate }: EditMemberDialogProps) {
@@ -60,9 +59,7 @@ export function EditMemberDialog({ open, onOpenChange, member, onMemberUpdate }:
                 deposits: formData.deposits
             };
             await updateCooperativeMember(member.id, dataToUpdate);
-            if (onMemberUpdate) {
-                onMemberUpdate(formData);
-            }
+            onMemberUpdate(formData); // Update local state in parent
             toast({ title: 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' });
             onOpenChange(false);
         } catch (error) {
