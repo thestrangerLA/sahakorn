@@ -34,6 +34,7 @@ export interface Account {
 
 export interface Transaction {
   id: string;
+  transactionGroupId: string;
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';

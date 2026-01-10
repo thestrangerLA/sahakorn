@@ -1,6 +1,7 @@
 
 
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
 import type { Transaction, Currency, Account } from '@/lib/types'
 
@@ -13,7 +14,10 @@ export async function createTransaction(
   description: string,
   date: Date,
 ) {
+  const transactionGroupId = uuidv4();
+
   await addDoc(transactionsCollectionRef, {
+    transactionGroupId,
     date: Timestamp.fromDate(date),
     accountId: debitAccountId,
     type: 'debit',
@@ -24,6 +28,7 @@ export async function createTransaction(
   })
 
   await addDoc(transactionsCollectionRef, {
+    transactionGroupId,
     date: Timestamp.fromDate(date),
     accountId: creditAccountId,
     type: 'credit',

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
+import { DateRange } from "react-day-picker";
 
 const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: Currency = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -46,6 +47,14 @@ const SummaryCard = ({ title, balances }: { title: string, balances: Currency })
     </Card>
 );
 
+type JournalEntry = {
+    transactionGroupId: string;
+    date: Date;
+    description: string;
+    debit: { accountId: string; amount: Currency };
+    credit: { accountId: string; amount: Currency };
+};
+
 export default function CooperativeAccountingPage() {
     const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -58,6 +67,12 @@ export default function CooperativeAccountingPage() {
     const [debitAccountId, setDebitAccountId] = useState('');
     const [creditAccountId, setCreditAccountId] = useState('');
     const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+
+    // Filter state
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [filterAccountId, setFilterAccountId] = useState<string>('');
+    const [filterDescription, setFilterDescription] = useState('');
+
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
@@ -73,13 +88,66 @@ export default function CooperativeAccountingPage() {
         setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
+    const journalEntries = useMemo(() => {
+        const grouped = transactions.reduce((acc, tx) => {
+            if (!acc[tx.transactionGroupId]) {
+                acc[tx.transactionGroupId] = {
+                    transactionGroupId: tx.transactionGroupId,
+                    date: tx.date,
+                    description: tx.description,
+                    debit: { accountId: '', amount: { ...initialCurrencyValues } },
+                    credit: { accountId: '', amount: { ...initialCurrencyValues } }
+                };
+            }
+            if (tx.type === 'debit') {
+                acc[tx.transactionGroupId].debit = { accountId: tx.accountId, amount: tx.amount };
+            } else {
+                acc[tx.transactionGroupId].credit = { accountId: tx.accountId, amount: tx.amount };
+            }
+            return acc;
+        }, {} as Record<string, JournalEntry>);
+        
+        let filteredEntries = Object.values(grouped);
+
+        if(dateRange?.from && dateRange?.to) {
+            filteredEntries = filteredEntries.filter(entry => 
+                entry.date >= dateRange.from! && entry.date <= dateRange.to!
+            );
+        }
+
+        if(filterAccountId) {
+            filteredEntries = filteredEntries.filter(entry => 
+                entry.debit.accountId === filterAccountId || entry.credit.accountId === filterAccountId
+            );
+        }
+
+        if(filterDescription) {
+            filteredEntries = filteredEntries.filter(entry =>
+                entry.description.toLowerCase().includes(filterDescription.toLowerCase())
+            );
+        }
+
+        return filteredEntries.sort((a,b) => b.date.getTime() - a.date.getTime());
+    }, [transactions, dateRange, filterAccountId, filterDescription]);
+
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
         const totalAmount = amount.kip + amount.thb + amount.usd + amount.cny;
-        if (!date || !description || !debitAccountId || !creditAccountId || totalAmount === 0) {
+
+        // Validation
+        if (!date || !description || !debitAccountId || !creditAccountId) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
             return;
         }
+         if (totalAmount === 0) {
+            toast({ title: "ຈຳນວນເງິນຜິດພາດ", description: "ຈຳນວນເງິນຕ້ອງບໍ່ແມ່ນສູນ", variant: "destructive" });
+            return;
+        }
+        if (debitAccountId === creditAccountId) {
+            toast({ title: "ບັນຊີຜິດພາດ", description: "ບັນຊີ Debit ແລະ Credit ຕ້ອງບໍ່ຄືກັນ", variant: "destructive" });
+            return;
+        }
+
         try {
             await createTransaction(debitAccountId, creditAccountId, amount, description, date);
             toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
@@ -164,6 +232,31 @@ export default function CooperativeAccountingPage() {
                     <Card className="lg:col-span-2">
                         <CardHeader>
                             <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
+                            <div className="flex flex-wrap items-center gap-2 pt-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button id="date" variant={"outline"} className="w-auto justify-start text-left font-normal">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</> : format(dateRange.from, "LLL dd, y")) : <span>ເລືອກຊ່ວງວັນທີ</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                                    </PopoverContent>
+                                </Popover>
+                                <Select value={filterAccountId} onValueChange={setFilterAccountId}>
+                                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="ກອງຕາມບັນຊີ" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">ທຸກບັນຊີ</SelectItem>
+                                        {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                 <div className="relative">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input placeholder="ຄົ້ນຫາຄຳອະທິບາຍ..." className="pl-8 w-auto" value={filterDescription} onChange={(e) => setFilterDescription(e.target.value)} />
+                                </div>
+                                <Button variant="ghost" onClick={() => { setDateRange(undefined); setFilterAccountId(''); setFilterDescription(''); }}>ລ້າງໂຕກອງ</Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                              <Table>
@@ -177,24 +270,32 @@ export default function CooperativeAccountingPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {transactions.map(tx => {
-                                        const account = accounts.find(a => a.id === tx.accountId);
+                                    {journalEntries.map(entry => {
+                                        const debitAccount = accounts.find(a => a.id === entry.debit.accountId);
+                                        const creditAccount = accounts.find(a => a.id === entry.credit.accountId);
                                         return (
-                                        <TableRow key={tx.id}>
-                                            <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
-                                            <TableCell>{tx.description}</TableCell>
-                                            <TableCell>{account?.name}</TableCell>
-                                            <TableCell className="text-right text-green-600 font-mono">
-                                                {tx.type === 'debit' ? currencies.map(c => tx.amount[c] > 0 ? <div key={c}>{formatCurrency(tx.amount[c])} {c.toUpperCase()}</div>: null) : '-'}
-                                            </TableCell>
-                                             <TableCell className="text-right text-red-600 font-mono">
-                                                {tx.type === 'credit' ? currencies.map(c => tx.amount[c] > 0 ? <div key={c}>{formatCurrency(tx.amount[c])} {c.toUpperCase()}</div>: null) : '-'}
-                                            </TableCell>
-                                        </TableRow>
+                                        <React.Fragment key={entry.transactionGroupId}>
+                                            <TableRow>
+                                                <TableCell rowSpan={2}>{format(entry.date, "dd/MM/yyyy")}</TableCell>
+                                                <TableCell rowSpan={2}>{entry.description}</TableCell>
+                                                <TableCell>{debitAccount?.name}</TableCell>
+                                                <TableCell className="text-right text-green-600 font-mono">
+                                                     {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
+                                                </TableCell>
+                                                <TableCell></TableCell>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell className="pl-8">{creditAccount?.name}</TableCell>
+                                                <TableCell></TableCell>
+                                                <TableCell className="text-right text-red-600 font-mono">
+                                                     {currencies.map(c => entry.credit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.credit.amount[c])}</div>: null)}
+                                                </TableCell>
+                                            </TableRow>
+                                        </React.Fragment>
                                     )})}
                                 </TableBody>
                             </Table>
-                            {transactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
+                            {journalEntries.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
                         </CardContent>
                     </Card>
                 </div>
