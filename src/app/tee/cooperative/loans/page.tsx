@@ -68,39 +68,58 @@ export default function CooperativeLoansPage() {
         }, {} as Record<string, string>);
     }, [members]);
 
-    const summary = useMemo(() => {
-        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
-        loans.forEach(loan => {
-            currencies.forEach(c => totalLoanAmount[c] += loan.amount?.[c] || 0);
-        });
+    const loansWithDetails = useMemo(() => {
+        return loans.map(loan => {
+            const loanRepayments = repayments.filter(r => r.loanId === loan.id);
+            
+            const principalAndInterest = { ...initialCurrencyValues };
+            const totalPaid = { ...initialCurrencyValues };
+            const outstandingBalance = { ...initialCurrencyValues };
+            const actualProfit = { ...initialCurrencyValues };
 
-        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
-        repayments.forEach(r => {
-            currencies.forEach(c => totalPaidAmount[c] += r.amountPaid?.[c] || 0);
-        });
+            currencies.forEach(c => {
+                const principal = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                const interestAmount = principal * ((loan.interestRate || 0) / 100);
+                principalAndInterest[c as keyof typeof principalAndInterest] = principal + interestAmount;
 
-        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
-        loans
-            .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
-            .forEach(l => {
-                currencies.forEach(c => {
-                    const totalLoanWithInterest = (l.amount[c] || 0) + ((l.amount[c] || 0) * (l.interestRate || 0) / 100);
-                    const paidForThisLoan = repayments
-                        .filter(r => r.loanId === l.id)
-                        .reduce((paidSum, r) => paidSum + (r.amountPaid[c] || 0), 0);
-                    totalOutstandingAmount[c] += totalLoanWithInterest - paidForThisLoan;
-                });
+                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
+                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
+                
+                if (principalAndInterest[c as keyof typeof principalAndInterest] > 0) {
+                  const paidRatio = totalPaid[c as keyof typeof totalPaid] / principalAndInterest[c as keyof typeof principalAndInterest];
+                  actualProfit[c as keyof typeof actualProfit] = interestAmount * paidRatio;
+                }
             });
 
-
-        return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount };
+            return { ...loan, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
+        });
     }, [loans, repayments]);
+
+    const summary = useMemo(() => {
+        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
+        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
+        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
+
+        loansWithDetails.forEach(loan => {
+            currencies.forEach(c => {
+                 totalLoanAmount[c] += loan.amount?.[c] || 0;
+                 totalPaidAmount[c] += loan.totalPaid[c];
+                 if (loan.status !== 'paid_off' && loan.status !== 'rejected') {
+                    totalOutstandingAmount[c] += loan.outstandingBalance[c];
+                 }
+            });
+        });
+        
+        return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount };
+    }, [loansWithDetails]);
+
 
     const handleRowClick = (loanId: string) => {
         router.push(`/tee/cooperative/loans/${loanId}`);
     };
     
-    const handleDeleteClick = (loan: Loan) => {
+    const handleDeleteClick = (e: React.MouseEvent, loan: Loan) => {
+        e.stopPropagation();
         setLoanToDelete(loan);
     };
 
@@ -180,6 +199,8 @@ export default function CooperativeLoansPage() {
                                     <TableHead className="text-right">%</TableHead>
                                     <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
+                                    <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
+                                    <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">ການດຳເນີນການ</TableHead>
@@ -187,33 +208,45 @@ export default function CooperativeLoansPage() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
-                                ) : loans.length > 0 ? (
-                                    loans.map(loan => (
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                ) : loansWithDetails.length > 0 ? (
+                                    loansWithDetails.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell>
                                                 <div className="font-mono">{loan.loanCode}</div>
                                                 <div>{memberMap[loan.memberId] || 'N/A'}</div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                                 {currencies.map(c => {
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right">{loan.interestRate}%</TableCell>
-                                            <TableCell className="text-right text-green-600">
-                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                             <TableCell className="text-right text-green-500">
+                                                {currencies.map(c => {
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
                                                     const profit = amount * (loan.interestRate / 100);
                                                     return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">
+                                                 {currencies.map(c => {
+                                                    const amount = loan.principalAndInterest[c as keyof typeof loan.principalAndInterest] || 0;
+                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
+                                            <TableCell className="text-right text-green-600">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
-                                                    const total = amount * (1 + (loan.interestRate / 100));
-                                                    return total > 0 ? <div key={c}>{formatCurrency(total)} {c.toUpperCase()}</div> : null;
+                                                    const amount = loan.totalPaid[c as keyof typeof loan.totalPaid] || 0;
+                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
+                                             <TableCell className="text-right text-red-600">
+                                                {currencies.map(c => {
+                                                     if ((loan.amount?.[c as keyof typeof loan.amount] || 0) === 0 && (loan.totalPaid[c as keyof typeof loan.totalPaid] || 0) === 0) return null;
+                                                     const amount = loan.outstandingBalance[c as keyof typeof loan.outstandingBalance] || 0;
+                                                     return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
                                             </TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
@@ -230,10 +263,7 @@ export default function CooperativeLoansPage() {
                                                         <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem 
                                                             className="text-red-500"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteClick(loan);
-                                                            }}
+                                                            onClick={(e) => handleDeleteClick(e, loan)}
                                                         >
                                                             ລົບ
                                                         </DropdownMenuItem>
@@ -243,7 +273,7 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -268,4 +298,5 @@ export default function CooperativeLoansPage() {
             </AlertDialog>
         </div>
     );
-}
+
+    
