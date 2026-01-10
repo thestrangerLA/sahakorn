@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { listenToCooperativeTransactions, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
+import { deleteTransactionGroup, listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
 import { format, isSameMonth, isSameYear, getYear, setMonth, getMonth } from 'date-fns';
@@ -126,6 +126,14 @@ export default function CooperativeIncomeExpensePage() {
     }, [transactions]);
     
     const handleDeleteTransaction = async (groupId: string) => {
+        if (!groupId) {
+            toast({
+                title: "ຂໍ້ມູນຜິດພາດ",
+                description: "ບໍ່ພົບ ID ຂອງກຸ່ມທຸລະກຳ",
+                variant: "destructive"
+            });
+            return;
+        }
         try {
             await deleteTransactionGroup(groupId);
             toast({
@@ -151,7 +159,21 @@ export default function CooperativeIncomeExpensePage() {
         
         return (
             <div className="flex gap-2">
-                <Select value={filter.month === 'all' ? 'all' : String(filter.month)} onValueChange={v => setFilter(f => ({ ...f, month: v === 'all' ? 'all' : Number(v) }))}>
+                <Select
+                  value={
+                    filter.month === 'all'
+                      ? 'all'
+                      : typeof filter.month === 'number'
+                      ? String(filter.month)
+                      : 'all'
+                  }
+                  onValueChange={v =>
+                    setFilter(f => ({
+                      ...f,
+                      month: v === 'all' ? 'all' : Number(v),
+                    }))
+                  }
+                >
                     <SelectTrigger className="w-36">
                         <SelectValue placeholder="ເດືອນ" />
                     </SelectTrigger>
@@ -160,7 +182,21 @@ export default function CooperativeIncomeExpensePage() {
                         {months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                 <Select value={filter.year === 'all' ? 'all' : String(filter.year)} onValueChange={v => setFilter(f => ({ ...f, year: v === 'all' ? 'all' : Number(v) }))}>
+                 <Select
+                    value={
+                        filter.year === 'all'
+                        ? 'all'
+                        : typeof filter.year === 'number'
+                        ? String(filter.year)
+                        : 'all'
+                    }
+                    onValueChange={v =>
+                        setFilter(f => ({
+                        ...f,
+                        year: v === 'all' ? 'all' : Number(v),
+                        }))
+                    }
+                    >
                     <SelectTrigger className="w-32">
                         <SelectValue placeholder="ປີ" />
                     </SelectTrigger>
@@ -256,7 +292,7 @@ export default function CooperativeIncomeExpensePage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>ຢືນຢັນການລຶບ?</AlertDialogTitle>
+                                                            <AlertDialogTitle>ຢືນຢັນການລົບ?</AlertDialogTitle>
                                                             <AlertDialogDescription>
                                                                 ການກະທຳນີ້ຈະລຶບທັງລາຍການ Debit ແລະ Credit ທີ່ກ່ຽວຂ້ອງ. ບໍ່ສາມາດຍົກເລີກໄດ້.
                                                             </AlertDialogDescription>
@@ -280,3 +316,4 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
+
