@@ -218,15 +218,14 @@ export default function CooperativeLoansPage() {
                         <CardTitle>ລາຍການສິນເຊື່ອທັງໝົດ</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
+                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                    <TableHead className="text-right">ກຳໄລ</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
-                                    <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
-                                    <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
+                                    {currencies.map(c => <TableHead key={`h-p-${c}`} className="text-right">{c.toUpperCase()} (ເງິນຕົ້ນ)</TableHead>)}
+                                    {currencies.map(c => <TableHead key={`h-pi-${c}`} className="text-right">{c.toUpperCase()} (ຕົ້ນ+ດອກ)</TableHead>)}
+                                    {currencies.map(c => <TableHead key={`h-paid-${c}`} className="text-right text-green-600">{c.toUpperCase()} (ຈ່າຍແລ້ວ)</TableHead>)}
+                                    {currencies.map(c => <TableHead key={`h-out-${c}`} className="text-right text-red-600">{c.toUpperCase()} (ຄ້າງຈ່າຍ)</TableHead>)}
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">ການດຳເນີນການ</TableHead>
@@ -242,38 +241,35 @@ export default function CooperativeLoansPage() {
                                                 <div className="font-mono">{loan.loanCode}</div>
                                                 <div>{memberMap[loan.memberId] || 'N/A'}</div>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                 {currencies.map(c => {
-                                                    const amount = loan.principal[c] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-green-500">
-                                                {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
-                                                    const profit = amount * (loan.interestRate / 100);
-                                                    return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold">
-                                                 {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="text-right text-green-600">
-                                                {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-red-600">
-                                                {currencies.map(c => {
-                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c] || 0;
-                                                     return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
-                                                })}
-                                            </TableCell>
+                                            
+                                            {/* Principal */}
+                                            {currencies.map(c => (
+                                                <TableCell key={`p-${c}-${loan.id}`} className="text-right font-mono">
+                                                    {(loan.principal[c] || 0) > 0 ? formatCurrency(loan.principal[c]) : '-'}
+                                                </TableCell>
+                                            ))}
+                                            
+                                            {/* Principal + Interest */}
+                                            {currencies.map(c => (
+                                                <TableCell key={`pi-${c}-${loan.id}`} className="text-right font-mono font-semibold">
+                                                    {(loan.principalAndInterest[c] || 0) > 0 ? formatCurrency(loan.principalAndInterest[c]) : '-'}
+                                                </TableCell>
+                                            ))}
+
+                                            {/* Paid */}
+                                            {currencies.map(c => (
+                                                <TableCell key={`paid-${c}-${loan.id}`} className="text-right font-mono text-green-600">
+                                                    {(loan.totalPaid[c] || 0) > 0 ? formatCurrency(loan.totalPaid[c]) : '-'}
+                                                </TableCell>
+                                            ))}
+
+                                            {/* Outstanding */}
+                                            {currencies.map(c => (
+                                                <TableCell key={`out-${c}-${loan.id}`} className="text-right font-mono text-red-600">
+                                                    {(loan.principalAndInterest[c] || 0) > 0 ? formatCurrency(loan.outstandingBalance[c]) : '-'}
+                                                </TableCell>
+                                            ))}
+                                            
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
                                                 <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : 'warning'}>
@@ -302,7 +298,7 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={15} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -327,3 +323,4 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
