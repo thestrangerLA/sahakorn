@@ -187,7 +187,7 @@ export interface ApplianceStockLog {
 
 export type CurrencyValues = {
     kip: number;
-    thb: number;
+    baht: number;
     usd: number;
     cny: number;
 };
@@ -257,7 +257,7 @@ export interface Loan {
   term: number; // in months
   purpose: string;
   applicationDate: Date;
-  status: 'pending' | 'active' | 'paid_off' | 'rejected';
+  status: 'active' | 'paid_off' | 'rejected';
   createdAt: Date;
 }
 
@@ -279,7 +279,6 @@ export interface LoanRepayment {
     thb: number;
     usd: number;
   };
-  note?: string;
-  createdBy?: string;
+  note: string;
   createdAt: Date;
 }
