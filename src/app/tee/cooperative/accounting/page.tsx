@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2 } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Combine, MinusCircle } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -18,13 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
 
-const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: Currency = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 const formatCurrency = (value: number) => {
@@ -41,11 +41,12 @@ const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyVal
             {currencies.map(c => (
                 (balances[c] || 0) !== 0 && (
                 <div key={c} className="text-xs">
-                    <span className="font-semibold uppercase">{c}: </span>
+                    <span className="font-semibold uppercase">{c}: </span> 
                     <span>{formatCurrency(balances[c] || 0)}</span>
                 </div>
                 )
             ))}
+             {Object.values(balances).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
         </CardContent>
     </Card>
 );
@@ -54,8 +55,8 @@ type JournalEntry = {
     transactionGroupId: string;
     date: Date;
     description: string;
-    debit: { accountId: string; amount: Currency };
-    credit: { accountId: string; amount: Currency };
+    debit: { accountId: string; amount: CurrencyValues };
+    credit: { accountId: string; amount: CurrencyValues };
 };
 
 export default function CooperativeAccountingPage() {
@@ -63,13 +64,14 @@ export default function CooperativeAccountingPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
-    
+    const [summary, setSummary] = useState<AccountSummary | null>(null);
+
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
     const [debitAccountId, setDebitAccountId] = useState<string | undefined>(undefined);
     const [creditAccountId, setCreditAccountId] = useState<string | undefined>(undefined);
-    const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -79,15 +81,36 @@ export default function CooperativeAccountingPage() {
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        return () => unsubscribe();
+        const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
+        return () => {
+            unsubscribe();
+            unsubscribeSummary();
+        };
     }, []);
 
     useEffect(() => {
         const balances = getAccountBalances(transactions);
         setAccountBalances(balances);
     }, [transactions]);
+    
+    const reconciliationData = useMemo(() => {
+        if (!summary) return null;
+        
+        const actualCash = summary.cash;
+        const actualTransfer = summary.transfer;
+        const actualTotal = currencies.reduce((acc, c) => ({...acc, [c]: (actualCash[c] || 0) + (actualTransfer[c] || 0) }), {...initialCurrencyValues});
 
-    const handleAmountChange = (currency: keyof Currency, value: string) => {
+        const calculatedCash = accountBalances['cash'] || initialCurrencyValues;
+        const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; 
+        const calculatedTotal = currencies.reduce((acc, c) => ({...acc, [c]: (calculatedCash[c] || 0) + (calculatedTransfer[c] || 0) }), {...initialCurrencyValues});
+
+        const difference = currencies.reduce((acc, c) => ({...acc, [c]: actualTotal[c] - calculatedTotal[c] }), {...initialCurrencyValues});
+
+        return { actualTotal, calculatedTotal, difference };
+
+    }, [summary, accountBalances]);
+
+    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
         setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
@@ -185,46 +208,67 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                      {accounts.filter(a => a.type === 'asset').map(acc => (
                          <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
                      ))}
+                     {reconciliationData && (
+                        <Card className="border-blue-500 border-2">
+                             <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-blue-600">ປຽบเทียบยอดเงิน</CardTitle>
+                            </CardHeader>
+                             <CardContent className="text-xs">
+                                {currencies.map(c => {
+                                    if(reconciliationData.difference[c] === 0) return null;
+                                    return (
+                                        <div key={c}>
+                                            <span className="font-semibold uppercase">{c}: </span> 
+                                            <span className={reconciliationData.difference[c] > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                {reconciliationData.difference[c] > 0 ? '+' : ''}{formatCurrency(reconciliationData.difference[c])}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
+                                 {Object.values(reconciliationData.difference).every(v => v === 0) && <p className="text-muted-foreground">ยอดเงินกົງกัน</p>}
+                            </CardContent>
+                        </Card>
+                     )}
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
                         <CardHeader>
-                            <CardTitle>ບັນທຶກລາຍການ (Journal Entry)</CardTitle>
+                            <CardTitle>บันทึกลายการ (Journal Entry)</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleAddTransaction} className="grid gap-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="date">ວັນທີ</Label>
+                                    <Label htmlFor="date">วันที</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button variant={"outline"} className="w-full justify-start text-left font-normal">
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {date ? format(date, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                                {date ? format(date, "PPP") : <span>เลือกวันที</span>}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={setDate} initialFocus  /></PopoverContent>
                                     </Popover>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="description">ຄຳອະທິບາຍ</Label>
+                                    <Label htmlFor="description">คำอธิบาย</Label>
                                     <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} required />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <Label>Debit (ເດບິດ)</Label>
+                                        <Label>Debit (เดบิต)</Label>
                                         <Select value={debitAccountId} onValueChange={setDebitAccountId}>
-                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
+                                            <SelectTrigger><SelectValue placeholder="เลือกบัญชี" /></SelectTrigger>
                                             <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
                                      <div className="grid gap-2">
-                                        <Label>Credit (ເຄຣດິດ)</Label>
+                                        <Label>Credit (เครดิต)</Label>
                                         <Select value={creditAccountId} onValueChange={setCreditAccountId}>
-                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
+                                            <SelectTrigger><SelectValue placeholder="เลือกบัญชี" /></SelectTrigger>
                                             <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
@@ -237,19 +281,19 @@ export default function CooperativeAccountingPage() {
                                     <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange('cny', e.target.value)} /></div>
                                 </div>
 
-                                <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
+                                <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />เพิมทุระกัม</Button>
                             </form>
                         </CardContent>
                     </Card>
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
+                            <CardTitle>ประวัติทุระกัม</CardTitle>
                             <div className="flex flex-wrap items-center gap-2 pt-2">
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button id="date" variant={"outline"} className="w-auto justify-start text-left font-normal">
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</> : format(dateRange.from, "LLL dd, y")) : <span>ເລືອກຊ່ວງວັນທີ</span>}
+                                            {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</> : format(dateRange.from, "LLL dd, y")) : <span>เลือกช่วงวันที</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
@@ -257,28 +301,28 @@ export default function CooperativeAccountingPage() {
                                     </PopoverContent>
                                 </Popover>
                                 <Select value={filterAccountId} onValueChange={setFilterAccountId}>
-                                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="ກອງຕາມບັນຊີ" /></SelectTrigger>
+                                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="กองตามบัญชี" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">ທຸກບັນຊີ</SelectItem>
+                                        <SelectItem value="all">ทุกบัญชี</SelectItem>
                                         {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                  <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input placeholder="ຄົ້ນຫາຄຳອະທິບາຍ..." className="pl-8 w-auto" value={filterDescription} onChange={(e) => setFilterDescription(e.target.value)} />
+                                    <Input placeholder="ค้นหาคำอธิบาย..." className="pl-8 w-auto" value={filterDescription} onChange={(e) => setFilterDescription(e.target.value)} />
                                 </div>
-                                <Button variant="ghost" onClick={() => { setDateRange(undefined); setFilterAccountId('all'); setFilterDescription(''); }}>ລ້າງໂຕກອງ</Button>
+                                <Button variant="ghost" onClick={() => { setDateRange(undefined); setFilterAccountId('all'); setFilterDescription(''); }}>ล้างโตอง</Button>
                             </div>
                         </CardHeader>
                         <CardContent>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>ວັນທີ</TableHead>
-                                        <TableHead>ລາຍລະອຽດ</TableHead>
-                                        <TableHead>ບັນຊີ</TableHead>
-                                        <TableHead className="text-right">ເດບິດ</TableHead>
-                                        <TableHead className="text-right">ເຄຣດິດ</TableHead>
+                                        <TableHead>วันที</TableHead>
+                                        <TableHead>ลายละเอียด</TableHead>
+                                        <TableHead>บัญชี</TableHead>
+                                        <TableHead className="text-right">เดบิต</TableHead>
+                                        <TableHead className="text-right">เครดิต</TableHead>
                                         <TableHead><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -305,7 +349,7 @@ export default function CooperativeAccountingPage() {
                                                             <AlertDialogHeader>
                                                                 <AlertDialogTitle>ยืนยันการลบ?</AlertDialogTitle>
                                                                 <AlertDialogDescription>
-                                                                    การกระทำนี้จะลบทั้งรายการเดบิตและเครดิตที่เกี่ยวข้องกัน ไม่สามารถยกเลิกได้
+                                                                    การกระทำนีจะลบทังลายการ Debit และ Credit ทีเกียวข้อง. ไม่สามารถยกเลิกได้.
                                                                 </AlertDialogDescription>
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
@@ -327,7 +371,7 @@ export default function CooperativeAccountingPage() {
                                     )})}
                                 </TableBody>
                             </Table>
-                            {journalEntries.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
+                            {journalEntries.length === 0 && <div className="text-center py-8 text-muted-foreground">ไม่ีทุระกัม</div>}
                         </CardContent>
                     </Card>
                 </div>
@@ -335,3 +379,5 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+
+    
