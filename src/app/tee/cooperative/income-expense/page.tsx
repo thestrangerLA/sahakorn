@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, TrendingUp, TrendingDown, Receipt, ChevronDown } from "lucide-react"
+import { ArrowLeft, BookOpen, Trash2 } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -14,13 +14,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth, isSameMonth, isSameYear } from 'date-fns';
+import { format, isSameMonth, isSameYear, getYear, setMonth } from 'date-fns';
 import { lo } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
@@ -78,6 +80,7 @@ const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues
 };
 
 export default function CooperativeIncomeExpensePage() {
+    const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [filter, setFilter] = useState<{ year: number | 'all'; month: number | 'all' }>({
         year: new Date().getFullYear(),
@@ -121,6 +124,22 @@ export default function CooperativeIncomeExpensePage() {
         const thisYearTxs = transactions.filter(tx => tx.date && isSameYear(tx.date, now));
         return calculateSummary(thisYearTxs);
     }, [transactions]);
+    
+    const handleDeleteTransaction = async (groupId: string) => {
+        try {
+            await deleteTransactionGroup(groupId);
+            toast({
+                title: "ລຶບທຸລະກຳສຳເລັດ"
+            });
+        } catch (error) {
+            console.error('Error deleting transaction group:', error);
+            toast({
+                title: 'ເກີດຂໍ້ຜິດພາດ',
+                description: 'ບໍ່ສາມາດລຶບທຸລະກຳໄດ້',
+                variant: 'destructive',
+            });
+        }
+    };
     
     const MonthYearSelector = () => {
         const currentYear = getYear(new Date());
@@ -199,6 +218,7 @@ export default function CooperativeIncomeExpensePage() {
                                     <TableHead>ໝວດໝູ່</TableHead>
                                     <TableHead>ປະເພດ</TableHead>
                                     {currencies.map(c => <TableHead key={c} className="text-right uppercase">{c}</TableHead>)}
+                                    <TableHead><span className="sr-only">Actions</span></TableHead>
                                 </TableRow>
                             </TableHeader>
                              <TableBody>
@@ -229,6 +249,25 @@ export default function CooperativeIncomeExpensePage() {
                                                     </TableCell>
                                                 )
                                             })}
+                                            <TableCell>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>ยืนยันการลบ?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                การกระทำนี้จะลบทั้งรายการเดบิตและเครดิตที่เกี่ยวข้องกัน ไม่สามารถยกเลิกได้
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx.transactionGroupId)}>ยืนยัน</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
                                         </TableRow>
                                     )
                                 }).filter(Boolean)}
