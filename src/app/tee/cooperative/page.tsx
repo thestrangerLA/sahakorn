@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock } from "lucide-react"
+import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen } from "lucide-react"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 
@@ -33,6 +33,19 @@ export default function CooperativePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ຕິດຕາມລາຍຮັບ-ລາຍຈ່າຍ ແລະ ສະຫຼຸບພາບລວມການເງິນຂອງສະຫະກອນ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/tee/cooperative/income-expense">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ລາຍຮັບ-ລາຍຈ່າຍ</CardTitle>
+                <BookOpen className="h-8 w-8 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ເບິ່ງລາຍການເຄື່ອນໄຫວບັນຊີທັງໝົດ
                 </p>
               </CardContent>
             </Card>
