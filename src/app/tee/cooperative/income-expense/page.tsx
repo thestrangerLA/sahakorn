@@ -126,6 +126,14 @@ export default function CooperativeIncomeExpensePage() {
     }, [transactions]);
     
     const handleDeleteTransaction = async (groupId: string) => {
+         if (!groupId) {
+            toast({
+                title: "ຂໍ້ມູນຜິດພາດ",
+                description: "ບໍ່ພົບ ID ຂອງກຸ່ມທຸລະກຳ",
+                variant: "destructive"
+            });
+            return;
+        }
         try {
             await deleteTransactionGroup(groupId);
             toast({
@@ -256,7 +264,7 @@ export default function CooperativeIncomeExpensePage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>ຢືນຢັນການລຶບ?</AlertDialogTitle>
+                                                            <AlertDialogTitle>ຢືນຢັນການລົບ?</AlertDialogTitle>
                                                             <AlertDialogDescription>
                                                                 ການກະທຳນີ້ຈະລຶບທັງລາຍການ Debit ແລະ Credit ທີ່ກ່ຽວຂ້ອງ. ບໍ່ສາມາດຍົກເລີກໄດ້.
                                                             </AlertDialogDescription>
