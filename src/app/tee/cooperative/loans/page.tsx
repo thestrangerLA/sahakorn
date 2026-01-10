@@ -37,7 +37,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
@@ -72,15 +72,17 @@ export default function CooperativeLoansPage() {
         return loans.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
-            const principalAndInterest = { ...initialCurrencyValues };
-            const totalPaid = { ...initialCurrencyValues };
-            const outstandingBalance = { ...initialCurrencyValues };
-            const actualProfit = { ...initialCurrencyValues };
+            const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
+            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
+            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+            const actualProfit: CurrencyValues = { ...initialCurrencyValues };
+            const principal: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const principal = loan.amount?.[c] || 0;
-                const interestAmount = principal * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c] = principal + interestAmount;
+                const p = loan.amount?.[c] || 0;
+                principal[c] = p;
+                const interestAmount = p * ((loan.interestRate || 0) / 100);
+                principalAndInterest[c] = p + interestAmount;
 
                 totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
                 outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
@@ -91,7 +93,7 @@ export default function CooperativeLoansPage() {
                 }
             });
 
-            return { ...loan, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
+            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
         });
     }, [loans, repayments]);
 
@@ -102,7 +104,7 @@ export default function CooperativeLoansPage() {
 
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
-                 totalLoanAmount[c] += loan.amount?.[c] || 0;
+                 totalLoanAmount[c] += loan.principal[c] || 0;
                  totalPaidAmount[c] += loan.totalPaid[c];
                  if (loan.status !== 'paid_off' && loan.status !== 'rejected') {
                     totalOutstandingAmount[c] += loan.outstandingBalance[c];
@@ -295,3 +297,4 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+    
