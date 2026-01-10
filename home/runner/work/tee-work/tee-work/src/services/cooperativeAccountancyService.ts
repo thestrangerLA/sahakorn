@@ -1,6 +1,7 @@
 
+
 import { db } from '@/lib/firebase';
-import type { AccountSummary, Transaction } from '@/lib/types';
+import type { AccountSummary, Transaction, CurrencyValues } from '@/lib/types';
 import { 
     doc, 
     onSnapshot, 
@@ -19,10 +20,13 @@ import {
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
 const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+
+
 const initialSummaryState: Omit<AccountSummary, 'id'> = {
-    capital: 0,
-    cash: 0,
-    transfer: 0,
+    capital: { ...initialCurrencyValues },
+    cash: { ...initialCurrencyValues },
+    transfer: { ...initialCurrencyValues },
 };
 
 const ensureInitialState = async () => {
@@ -40,9 +44,9 @@ export const listenToCooperativeAccountSummary = (callback: (summary: AccountSum
             const data = docSnapshot.data();
             callback({
                 id: docSnapshot.id,
-                capital: data.capital || 0,
-                cash: data.cash || 0,
-                transfer: data.transfer || 0,
+                capital: data.capital || { ...initialCurrencyValues },
+                cash: data.cash || { ...initialCurrencyValues },
+                transfer: data.transfer || { ...initialCurrencyValues },
             } as AccountSummary);
         } else {
             callback({ id: 'latest', ...initialSummaryState });
@@ -68,7 +72,11 @@ export const listenToCooperativeTransactions = (
                 id: doc.id, 
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
-                amount: data.amount || 0
+                amount: data.amount || 0,
+                kip: data.kip || 0,
+                thb: data.thb || 0,
+                usd: data.usd || 0,
+                cny: data.cny || 0,
             } as Transaction);
         });
         callback(transactions);
