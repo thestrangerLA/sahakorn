@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2 } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -15,8 +15,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { format, startOfDay } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
@@ -163,6 +165,16 @@ export default function CooperativeAccountingPage() {
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     }
+    
+    const handleDeleteTransactionGroup = async (groupId: string) => {
+        try {
+            await deleteTransactionGroup(groupId);
+            toast({ title: "ລຶບທຸລະກຳສຳເລັດ" });
+        } catch (error) {
+            console.error("Error deleting transaction group:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການລຶບ", variant: "destructive" });
+        }
+    }
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -267,6 +279,7 @@ export default function CooperativeAccountingPage() {
                                         <TableHead>ບັນຊີ</TableHead>
                                         <TableHead className="text-right">ເດບິດ</TableHead>
                                         <TableHead className="text-right">ເຄຣດິດ</TableHead>
+                                        <TableHead><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -283,6 +296,25 @@ export default function CooperativeAccountingPage() {
                                                      {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
                                                 </TableCell>
                                                 <TableCell></TableCell>
+                                                <TableCell rowSpan={2} className="text-center align-middle">
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>ยืนยันการลบ?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    การกระทำนี้จะลบทั้งรายการเดบิตและเครดิตที่เกี่ยวข้องกัน ไม่สามารถยกเลิกได้
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteTransactionGroup(entry.transactionGroupId)}>ยืนยัน</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </TableCell>
                                             </TableRow>
                                             <TableRow>
                                                 <TableCell className="pl-8">{creditAccount?.name}</TableCell>
