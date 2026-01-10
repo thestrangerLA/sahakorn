@@ -30,6 +30,7 @@ const formatCurrency = (value: number) => {
 
 const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
 
+
 type NewRepayment = {
     id: string;
     date: Date;
@@ -52,6 +53,7 @@ export default function LoanDetailPage() {
     const [loading, setLoading] = useState(true);
     
     const [repaymentToDelete, setRepaymentToDelete] = useState<LoanRepayment | null>(null);
+    const [newRepayments, setNewRepayments] = useState<NewRepayment[]>([]);
 
 
     useEffect(() => {
@@ -77,9 +79,9 @@ export default function LoanDetailPage() {
     }, [id, member]);
 
      const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
-        const paid: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
-        const outstanding: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
-        const loanWithInterest: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+        const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const loanWithInterest: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
         if (loan) {
             currencies.forEach(c => {
@@ -146,6 +148,45 @@ export default function LoanDetailPage() {
         }
     };
 
+    const handleAddNewRepaymentRow = () => {
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
+    };
+
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd', value: any) => {
+        setNewRepayments(prev => prev.map(r => {
+            if (r.id === id) {
+                if (field.startsWith('amount.')) {
+                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd';
+                    return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
+                }
+                return { ...r, [field]: value };
+            }
+            return r;
+        }));
+    };
+    
+    const removeNewRepaymentRow = (id: string) => {
+        setNewRepayments(prev => prev.filter(r => r.id !== id));
+    };
+
+    const handleConfirmRepayments = async () => {
+        const validRepayments = newRepayments.filter(r => r.amount.kip > 0 || r.amount.thb > 0 || r.amount.usd > 0);
+        if (validRepayments.length === 0) {
+            toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
+            return;
+        }
+
+        try {
+            await addLoanRepayment(id, validRepayments);
+            toast({ title: "ບັນທຶກການຊຳລະສຳເລັດ" });
+            setNewRepayments([]);
+        } catch (error) {
+            console.error("Error confirming repayments:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive"});
+        }
+    };
+
+
     if (loading) return <div className="text-center p-8">Loading loan details...</div>;
     if (!loan) return <div className="text-center p-8">Loan not found.</div>;
 
@@ -199,6 +240,41 @@ export default function LoanDetailPage() {
                                     ))}
                                 </TableBody>
                             </Table>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>ເພີ່ມການຊຳລະຄືນ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {newRepayments.map((r, index) => (
+                                    <div key={r.id} className="flex items-center gap-2 p-2 border rounded-md">
+                                         <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className="w-[150px] justify-start text-left font-normal h-9">
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {r.date ? format(r.date, "dd/MM/yy") : <span>ເລືອກວັນທີ</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={r.date} onSelect={(date) => handleNewRepaymentChange(r.id, 'date', date)} initialFocus /></PopoverContent>
+                                        </Popover>
+                                        {currencies.map(c => (
+                                            <div key={c} className="flex items-center gap-1">
+                                                <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                            </div>
+                                        ))}
+                                        <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
+                                        <Button variant="ghost" size="icon" onClick={() => removeNewRepaymentRow(r.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 flex justify-between">
+                                <Button variant="outline" onClick={handleAddNewRepaymentRow}><PlusCircle className="mr-2 h-4 w-4"/>ເພີ່ມລາຍການຊຳລະ</Button>
+                                {newRepayments.length > 0 && <Button onClick={handleConfirmRepayments}>ຢືນຢັນການຊຳລະ</Button>}
+                            </div>
                         </CardContent>
                     </Card>
 
