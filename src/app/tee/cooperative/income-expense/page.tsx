@@ -256,14 +256,14 @@ export default function CooperativeIncomeExpensePage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>ยืนยันการลบ?</AlertDialogTitle>
+                                                            <AlertDialogTitle>ຢືນຢັນການລຶບ?</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                การกระทำนี้จะลบทั้งรายการเดบิตและเครดิตที่เกี่ยวข้องกัน ไม่สามารถยกเลิกได้
+                                                                ການກະທຳນີ້ຈະລຶບທັງລາຍການ Debit ແລະ Credit ທີ່ກ່ຽວຂ້ອງ. ບໍ່ສາມາດຍົກເລີກໄດ້.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
-                                                            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx.transactionGroupId)}>ยืนยัน</AlertDialogAction>
+                                                            <AlertDialogCancel>ຍົກເລີກ</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx.transactionGroupId)}>ຢືນຢັນ</AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>
