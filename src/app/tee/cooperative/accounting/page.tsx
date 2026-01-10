@@ -29,7 +29,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances }: { title: string, balances: Currency }) => (
+const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyValues }) => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -302,4 +302,4 @@ export default function CooperativeAccountingPage() {
             </main>
         </div>
     );
-    
+}
