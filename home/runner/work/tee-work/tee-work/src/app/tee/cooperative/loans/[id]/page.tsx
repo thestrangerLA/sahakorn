@@ -29,7 +29,6 @@ const formatCurrency = (value: number) => {
 };
 
 const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 
 
 type NewRepayment = {
@@ -349,3 +348,4 @@ export default function LoanDetailPage() {
     );
 }
 
+    
