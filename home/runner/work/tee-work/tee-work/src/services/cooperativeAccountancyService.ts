@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { AccountSummary, Transaction, CurrencyValues } from '@/lib/types';
 import { 
@@ -14,7 +13,10 @@ import {
     Timestamp,
     updateDoc,
     deleteDoc,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch,
+    where,
+    getDocs,
 } from 'firebase/firestore';
 
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
@@ -72,11 +74,7 @@ export const listenToCooperativeTransactions = (
                 id: doc.id, 
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
-                amount: data.amount || 0,
-                kip: data.kip || 0,
-                thb: data.thb || 0,
-                usd: data.usd || 0,
-                cny: data.cny || 0,
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Transaction);
         });
         callback(transactions);
@@ -90,28 +88,86 @@ export const listenToCooperativeTransactions = (
     return unsubscribe;
 };
 
-export const addCooperativeTransaction = async (transaction: Omit<Transaction, 'id' | 'businessType'>) => {
-    const newTransactionRef = doc(transactionsCollectionRef);
-    await setDoc(newTransactionRef, { 
-        ...transaction,
-        businessType: 'cooperative',
-        date: Timestamp.fromDate(transaction.date),
-        createdAt: serverTimestamp()
+export async function createTransaction(
+  debitAccountId: string,
+  creditAccountId: string,
+  amount: CurrencyValues,
+  description: string,
+  date: Date,
+) {
+  const transactionGroupId = uuidv4();
+
+  await addDoc(transactionsCollectionRef, {
+    transactionGroupId,
+    date: Timestamp.fromDate(date),
+    accountId: debitAccountId,
+    type: 'debit',
+    amount,
+    description,
+    createdAt: serverTimestamp(),
+    businessType: 'cooperative',
+  })
+
+  await addDoc(transactionsCollectionRef, {
+    transactionGroupId,
+    date: Timestamp.fromDate(date),
+    accountId: creditAccountId,
+    type: 'credit',
+    amount,
+    description,
+    createdAt: serverTimestamp(),
+    businessType: 'cooperative',
+  })
+}
+
+export async function deleteTransactionGroup(transactionGroupId: string) {
+  if (!transactionGroupId) {
+    throw new Error("Transaction Group ID is required to delete an entry.");
+  }
+
+  const q = query(transactionsCollectionRef, where("transactionGroupId", "==", transactionGroupId));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) {
+    console.warn(`No transactions found with group ID: ${transactionGroupId}`);
+    return;
+  }
+
+  const batch = writeBatch(db);
+  querySnapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+}
+
+
+export function sumCurrency(a: CurrencyValues, b: CurrencyValues): CurrencyValues {
+  return {
+    kip: (a.kip || 0) + (b.kip || 0),
+    thb: (a.thb || 0) + (b.thb || 0),
+    usd: (a.usd || 0) + (b.usd || 0),
+    cny: (a.cny || 0) + (b.cny || 0),
+  }
+}
+
+export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
+    const balances: Record<string, CurrencyValues> = {};
+
+    transactions.forEach(tx => {
+        if (!balances[tx.accountId]) {
+            balances[tx.accountId] = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        }
+
+        const multiplier = tx.type === 'debit' ? 1 : -1;
+        
+        const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+        currencyKeys.forEach(currencyKey => {
+            if (tx.amount && tx.amount[currencyKey]) {
+                balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
+            }
+        });
     });
-};
 
-export const updateCooperativeTransaction = async (id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) => {
-    const transactionDocRef = doc(transactionsCollectionRef, id);
-    const dataToUpdate: any = { ...updatedFields };
-    if (updatedFields.date) {
-        dataToUpdate.date = Timestamp.fromDate(updatedFields.date);
-    }
-    await updateDoc(transactionDocRef, dataToUpdate);
-};
-
-export const deleteCooperativeTransaction = async (id: string) => {
-    const transactionDocRef = doc(transactionsCollectionRef, id);
-    await deleteDoc(transactionDocRef);
-};
-
-    
+    return balances;
+}

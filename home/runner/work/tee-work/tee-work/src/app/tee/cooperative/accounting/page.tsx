@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Combine, MinusCircle } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -15,14 +15,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { format, startOfDay } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
 
-const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: Currency = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 const formatCurrency = (value: number) => {
@@ -52,8 +54,8 @@ type JournalEntry = {
     transactionGroupId: string;
     date: Date;
     description: string;
-    debit: { accountId: string; amount: Currency };
-    credit: { accountId: string; amount: Currency };
+    debit: { accountId: string; amount: CurrencyValues };
+    credit: { accountId: string; amount: CurrencyValues };
 };
 
 export default function CooperativeAccountingPage() {
@@ -61,13 +63,14 @@ export default function CooperativeAccountingPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
-    
+    const [summary, setSummary] = useState<AccountSummary | null>(null);
+
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
     const [debitAccountId, setDebitAccountId] = useState<string | undefined>(undefined);
     const [creditAccountId, setCreditAccountId] = useState<string | undefined>(undefined);
-    const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -77,15 +80,36 @@ export default function CooperativeAccountingPage() {
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        return () => unsubscribe();
+        const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
+        return () => {
+            unsubscribe();
+            unsubscribeSummary();
+        };
     }, []);
 
     useEffect(() => {
         const balances = getAccountBalances(transactions);
         setAccountBalances(balances);
     }, [transactions]);
+    
+    const reconciliationData = useMemo(() => {
+        if (!summary) return null;
+        
+        const actualCash = summary.cash;
+        const actualTransfer = summary.transfer;
+        const actualTotal = currencies.reduce((acc, c) => ({...acc, [c]: (actualCash[c] || 0) + (actualTransfer[c] || 0) }), {...initialCurrencyValues});
 
-    const handleAmountChange = (currency: keyof Currency, value: string) => {
+        const calculatedCash = accountBalances['cash'] || initialCurrencyValues;
+        const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; // Assuming loan receivable is transfer
+        const calculatedTotal = currencies.reduce((acc, c) => ({...acc, [c]: (calculatedCash[c] || 0) + (calculatedTransfer[c] || 0) }), {...initialCurrencyValues});
+
+        const difference = currencies.reduce((acc, c) => ({...acc, [c]: actualTotal[c] - calculatedTotal[c] }), {...initialCurrencyValues});
+
+        return { actualTotal, calculatedTotal, difference };
+
+    }, [summary, accountBalances]);
+
+    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
         setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
@@ -163,6 +187,16 @@ export default function CooperativeAccountingPage() {
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     }
+    
+    const handleDeleteTransactionGroup = async (groupId: string) => {
+        try {
+            await deleteTransactionGroup(groupId);
+            toast({ title: "ລຶບທຸລະກຳສຳເລັດ" });
+        } catch (error) {
+            console.error("Error deleting transaction group:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການລຶບ", variant: "destructive" });
+        }
+    }
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -173,10 +207,31 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                      {accounts.filter(a => a.type === 'asset').map(acc => (
                          <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
                      ))}
+                     {reconciliationData && (
+                        <Card className="border-blue-500 border-2">
+                             <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-blue-600">ປຽບທຽບຍອດເງິນ</CardTitle>
+                            </CardHeader>
+                             <CardContent className="text-xs">
+                                {currencies.map(c => {
+                                    if(reconciliationData.difference[c] === 0) return null;
+                                    return (
+                                        <div key={c}>
+                                            <span className="font-semibold uppercase">{c}: </span>
+                                            <span className={reconciliationData.difference[c] > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                {reconciliationData.difference[c] > 0 ? '+' : ''}{formatCurrency(reconciliationData.difference[c])}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
+                                 {Object.values(reconciliationData.difference).every(v => v === 0) && <p className="text-muted-foreground">ຍອດເງິນກົງກັນ</p>}
+                            </CardContent>
+                        </Card>
+                     )}
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
@@ -267,6 +322,7 @@ export default function CooperativeAccountingPage() {
                                         <TableHead>ບັນຊີ</TableHead>
                                         <TableHead className="text-right">ເດບິດ</TableHead>
                                         <TableHead className="text-right">ເຄຣດິດ</TableHead>
+                                        <TableHead><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -283,6 +339,25 @@ export default function CooperativeAccountingPage() {
                                                      {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
                                                 </TableCell>
                                                 <TableCell></TableCell>
+                                                <TableCell rowSpan={2} className="text-center align-middle">
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>ຢືນຢັນການລົບ?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    ການກະທຳນີ້ຈະລຶບທັງລາຍການ Debit ແລະ Credit ທີ່ກ່ຽວຂ້ອງ. ບໍ່ສາມາດຍົກເລີກໄດ້.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>ຍົກເລີກ</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteTransactionGroup(entry.transactionGroupId)}>ຢືນຢັນ</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </TableCell>
                                             </TableRow>
                                             <TableRow>
                                                 <TableCell className="pl-8">{creditAccount?.name}</TableCell>
