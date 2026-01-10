@@ -78,16 +78,16 @@ export default function CooperativeLoansPage() {
             const actualProfit = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const principal = loan.amount?.[c] || 0;
-                const interestAmount = principal * (loan.interestRate / 100);
-                principalAndInterest[c] = principal + interestAmount;
+                const principal = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                const interestAmount = principal * ((loan.interestRate || 0) / 100);
+                principalAndInterest[c as keyof typeof principalAndInterest] = principal + interestAmount;
 
-                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
+                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
+                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
                 
-                if (principalAndInterest[c] > 0) {
-                  const paidRatio = totalPaid[c] / principalAndInterest[c];
-                  actualProfit[c] = interestAmount * paidRatio;
+                if (principalAndInterest[c as keyof typeof principalAndInterest] > 0) {
+                  const paidRatio = totalPaid[c as keyof typeof totalPaid] / principalAndInterest[c as keyof typeof principalAndInterest];
+                  actualProfit[c as keyof typeof actualProfit] = interestAmount * paidRatio;
                 }
             });
 
@@ -118,7 +118,8 @@ export default function CooperativeLoansPage() {
         router.push(`/tee/cooperative/loans/${loanId}`);
     };
     
-    const handleDeleteClick = (loan: Loan) => {
+    const handleDeleteClick = (e: React.MouseEvent, loan: Loan) => {
+        e.stopPropagation();
         setLoanToDelete(loan);
     };
 
@@ -194,17 +195,20 @@ export default function CooperativeLoansPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
-                                    <TableHead>ສະຖານະ</TableHead>
+                                    <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
+                                    <TableHead className="text-right">%</TableHead>
+                                    <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
                                     <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
-                                    <TableHead className="text-right">ກຳໄລຕົວຈິງ</TableHead>
+                                    <TableHead>ວັນທີ</TableHead>
+                                    <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">ການດຳເນີນການ</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={7} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loansWithDetails.length > 0 ? (
                                     loansWithDetails.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
@@ -212,32 +216,41 @@ export default function CooperativeLoansPage() {
                                                 <div className="font-mono">{loan.loanCode}</div>
                                                 <div>{memberMap[loan.memberId] || 'N/A'}</div>
                                             </TableCell>
-                                            <TableCell><Badge>{loan.status}</Badge></TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c] || 0;
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
+                                            <TableCell className="text-right">{loan.interestRate}%</TableCell>
+                                             <TableCell className="text-right text-green-500">
+                                                {currencies.map(c => {
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    const profit = amount * (loan.interestRate / 100);
+                                                    return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">
+                                                 {currencies.map(c => {
+                                                    const amount = loan.principalAndInterest[c as keyof typeof loan.principalAndInterest] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right text-green-600">
                                                 {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c] || 0;
+                                                    const amount = loan.totalPaid[c as keyof typeof loan.totalPaid] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-red-600">
                                                 {currencies.map(c => {
-                                                     if (loan.amount[c] === 0 && loan.totalPaid[c] === 0) return null;
-                                                     const amount = loan.outstandingBalance[c] || 0;
+                                                     if ((loan.amount?.[c as keyof typeof loan.amount] || 0) === 0 && (loan.totalPaid[c as keyof typeof loan.totalPaid] || 0) === 0) return null;
+                                                     const amount = loan.outstandingBalance[c as keyof typeof loan.outstandingBalance] || 0;
                                                      return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
                                             </TableCell>
-                                            <TableCell className="text-right text-blue-600">
-                                                {currencies.map(c => {
-                                                    const amount = loan.actualProfit[c] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
+                                            <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell><Badge>{loan.status}</Badge></TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -250,10 +263,7 @@ export default function CooperativeLoansPage() {
                                                         <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem 
                                                             className="text-red-500"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteClick(loan);
-                                                            }}
+                                                            onClick={(e) => handleDeleteClick(e, loan)}
                                                         >
                                                             ລົບ
                                                         </DropdownMenuItem>
@@ -263,7 +273,7 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={7} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
