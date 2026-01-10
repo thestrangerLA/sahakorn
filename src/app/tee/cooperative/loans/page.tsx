@@ -37,7 +37,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const initialCurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
@@ -78,16 +78,16 @@ export default function CooperativeLoansPage() {
             const actualProfit = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const principal = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                const principal = loan.amount?.[c] || 0;
                 const interestAmount = principal * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c as keyof typeof principalAndInterest] = principal + interestAmount;
+                principalAndInterest[c] = principal + interestAmount;
 
-                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
-                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
+                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
                 
-                if (principalAndInterest[c as keyof typeof principalAndInterest] > 0) {
-                  const paidRatio = totalPaid[c as keyof typeof totalPaid] / principalAndInterest[c as keyof typeof principalAndInterest];
-                  actualProfit[c as keyof typeof actualProfit] = interestAmount * paidRatio;
+                if (principalAndInterest[c] > 0) {
+                  const paidRatio = totalPaid[c] / principalAndInterest[c];
+                  actualProfit[c] = interestAmount * paidRatio;
                 }
             });
 
@@ -143,7 +143,6 @@ export default function CooperativeLoansPage() {
         }
     };
 
-
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -196,7 +195,6 @@ export default function CooperativeLoansPage() {
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                    <TableHead className="text-right">%</TableHead>
                                     <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
@@ -218,34 +216,33 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    const amount = loan.amount?.[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
-                                            <TableCell className="text-right">{loan.interestRate}%</TableCell>
                                              <TableCell className="text-right text-green-500">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    const amount = loan.amount?.[c] || 0;
                                                     const profit = amount * (loan.interestRate / 100);
                                                     return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c as keyof typeof loan.principalAndInterest] || 0;
+                                                    const amount = loan.principalAndInterest[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right text-green-600">
                                                 {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c as keyof typeof loan.totalPaid] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                    const amount = loan.totalPaid[c] || 0;
+                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-red-600">
                                                 {currencies.map(c => {
-                                                     if ((loan.amount?.[c as keyof typeof loan.amount] || 0) === 0 && (loan.totalPaid[c as keyof typeof loan.totalPaid] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c as keyof typeof loan.outstandingBalance] || 0;
+                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
+                                                     const amount = loan.outstandingBalance[c] || 0;
                                                      return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
                                             </TableCell>
@@ -280,7 +277,6 @@ export default function CooperativeLoansPage() {
                     </CardContent>
                 </Card>
             </main>
-
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -298,5 +294,4 @@ export default function CooperativeLoansPage() {
             </AlertDialog>
         </div>
     );
-
-    
+}

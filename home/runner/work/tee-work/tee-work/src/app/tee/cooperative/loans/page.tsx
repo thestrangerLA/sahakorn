@@ -72,10 +72,10 @@ export default function CooperativeLoansPage() {
         return loans.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
-            const principalAndInterest = { ...initialCurrencyValues };
-            const totalPaid = { ...initialCurrencyValues };
-            const outstandingBalance = { ...initialCurrencyValues };
-            const actualProfit = { ...initialCurrencyValues };
+            const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
+            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
+            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+            const actualProfit: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
                 const principal = loan.amount?.[c as keyof typeof loan.amount] || 0;
@@ -195,8 +195,6 @@ export default function CooperativeLoansPage() {
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                    <TableHead className="text-right">%</TableHead>
-                                    <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
                                     <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
@@ -207,7 +205,7 @@ export default function CooperativeLoansPage() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loansWithDetails.length > 0 ? (
                                     loansWithDetails.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
@@ -217,34 +215,26 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                                                    const amount = loan.amount?.[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="text-right">{loan.interestRate}%</TableCell>
-                                             <TableCell className="text-right text-green-500">
-                                                {currencies.map(c => {
-                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
-                                                    const profit = amount * (loan.interestRate / 100);
-                                                    return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c as keyof typeof loan.principalAndInterest] || 0;
+                                                    const amount = loan.principalAndInterest[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right text-green-600">
                                                 {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c as keyof typeof loan.totalPaid] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                    const amount = loan.totalPaid[c] || 0;
+                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-red-600">
                                                 {currencies.map(c => {
-                                                     if ((loan.amount?.[c as keyof typeof loan.amount] || 0) === 0 && (loan.totalPaid[c as keyof typeof loan.totalPaid] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c as keyof typeof loan.outstandingBalance] || 0;
+                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
+                                                     const amount = loan.outstandingBalance[c] || 0;
                                                      return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
                                             </TableCell>
@@ -272,14 +262,13 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
                     </CardContent>
                 </Card>
             </main>
-
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
