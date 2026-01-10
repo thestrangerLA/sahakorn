@@ -37,7 +37,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 const currencies: (keyof Pick<CurrencyValues, 'kip' | 'thb' | 'usd'>)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
@@ -190,7 +190,7 @@ export default function CooperativeLoansPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                     {currencies.map(c => (
+                     {currencies.filter(c => c !== 'thb').map(c => (
                         <Card key={c}>
                             <CardHeader>
                                 <CardTitle className="text-lg">ສະຫຼຸບຍອດ {c.toUpperCase()}</CardTitle>
