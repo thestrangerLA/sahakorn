@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,19 +17,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
+import type { Account, Transaction, Currency } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: Currency = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyValues }) => (
+const SummaryCard = ({ title, balances }: { title: string, balances: Currency }) => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -52,22 +52,22 @@ type JournalEntry = {
     transactionGroupId: string;
     date: Date;
     description: string;
-    debit: { accountId: string; amount: CurrencyValues };
-    credit: { accountId: string; amount: CurrencyValues };
+    debit: { accountId: string; amount: Currency };
+    credit: { accountId: string; amount: Currency };
 };
 
 export default function CooperativeAccountingPage() {
     const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
-    const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
+    const [accountBalances, setAccountBalances] = useState<Record<string, Currency>>({});
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
-    const [debitAccountId, setDebitAccountId] = useState('');
-    const [creditAccountId, setCreditAccountId] = useState('');
-    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [debitAccountId, setDebitAccountId] = useState<string | undefined>(undefined);
+    const [creditAccountId, setCreditAccountId] = useState<string | undefined>(undefined);
+    const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -85,7 +85,7 @@ export default function CooperativeAccountingPage() {
         setAccountBalances(balances);
     }, [transactions]);
 
-    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
+    const handleAmountChange = (currency: keyof Currency, value: string) => {
         setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
@@ -135,7 +135,6 @@ export default function CooperativeAccountingPage() {
         e.preventDefault();
         const totalAmount = amount.kip + amount.thb + amount.usd + (amount.cny || 0);
 
-        // Validation
         if (!date || !description || !debitAccountId || !creditAccountId) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
             return;
@@ -155,8 +154,8 @@ export default function CooperativeAccountingPage() {
             // Reset form
             setDate(new Date());
             setDescription('');
-            setDebitAccountId('');
-            setCreditAccountId('');
+            setDebitAccountId(undefined);
+            setCreditAccountId(undefined);
             setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
         } catch (error) {
@@ -207,14 +206,20 @@ export default function CooperativeAccountingPage() {
                                         <Label>Debit (ເດບິດ)</Label>
                                         <Select value={debitAccountId} onValueChange={setDebitAccountId}>
                                             <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
-                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
+                                            <SelectContent>
+                                                <SelectItem value="placeholder" disabled>ເລືອກບັນຊີ</SelectItem>
+                                                {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                      <div className="grid gap-2">
                                         <Label>Credit (ເຄຣດິດ)</Label>
                                         <Select value={creditAccountId} onValueChange={setCreditAccountId}>
                                             <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
-                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
+                                            <SelectContent>
+                                                <SelectItem value="placeholder" disabled>ເລືອກບັນຊີ</SelectItem>
+                                                {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
