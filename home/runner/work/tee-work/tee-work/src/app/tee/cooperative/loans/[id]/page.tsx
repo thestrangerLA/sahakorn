@@ -189,32 +189,7 @@ export default function LoanDetailPage() {
                             </Table>
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader><CardTitle>ປະຫວັດການຊຳລະ</CardTitle></CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader><TableRow><TableHead>ວັນທີ</TableHead><TableHead>ຈຳນວນ</TableHead><TableHead>ໝາຍເຫດ</TableHead><TableHead className="text-right">ການດຳເນີນການ</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {repayments.length > 0 ? repayments.map(r => (
-                                        <TableRow key={r.id}>
-                                            <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell>
-                                                {currencies.map(c => (r.amountPaid[c as keyof typeof r.amountPaid] || 0) > 0 && <div key={c}>{`${formatCurrency(r.amountPaid[c as keyof typeof r.amountPaid])} ${c.toUpperCase()}`}</div>)}
-                                            </TableCell>
-                                            <TableCell>{r.note}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow><TableCell colSpan={4} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                    
                  </div>
                  <AlertDialog open={!!repaymentToDelete} onOpenChange={(open) => !open && setRepaymentToDelete(null)}>
                     <AlertDialogContent>
@@ -234,3 +209,4 @@ export default function LoanDetailPage() {
         </div>
     );
 }
+
