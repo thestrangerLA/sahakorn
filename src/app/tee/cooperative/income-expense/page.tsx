@@ -20,7 +20,7 @@ import type { Transaction, CurrencyValues } from '@/lib/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth, isSameMonth, isSameYear } from 'date-fns';
 import { lo } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
