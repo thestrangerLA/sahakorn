@@ -91,19 +91,19 @@ export default function LoanDetailPage() {
     }, [id, member]);
 
     const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
-        const paid: any = { ...initialCurrencyValues };
-        const outstanding: any = { ...initialCurrencyValues };
-        const loanWithInterest: any = { ...initialCurrencyValues };
+        const totalPaid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const outstandingBalance: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const totalLoanWithInterest: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
         if (loan) {
             currencies.forEach(c => {
                 const principal = loan.amount[c] || 0;
                 const interest = principal * (loan.interestRate / 100);
-                loanWithInterest[c] = principal + interest;
+                totalLoanWithInterest[c] = principal + interest;
 
                 const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c as keyof typeof r.amountPaid] || 0), 0);
-                paid[c] = paidForCurrency;
-                outstanding[c] = loanWithInterest[c] - paidForCurrency;
+                totalPaid[c] = paidForCurrency;
+                outstandingBalance[c] = totalLoanWithInterest[c] - paidForCurrency;
             });
         }
         
@@ -185,32 +185,6 @@ export default function LoanDetailPage() {
                                             <TableCell className="text-right font-bold text-red-600">{formatCurrency(outstandingBalance[c] || 0)}</TableCell>
                                         </TableRow>
                                     ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader><CardTitle>ປະຫວັດການຊຳລະ</CardTitle></CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader><TableRow><TableHead>ວັນທີ</TableHead><TableHead>ຈຳນວນ</TableHead><TableHead>ໝາຍເຫດ</TableHead><TableHead className="text-right">ການດຳເນີນການ</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {repayments.length > 0 ? repayments.map(r => (
-                                        <TableRow key={r.id}>
-                                            <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell>
-                                                {currencies.map(c => (r.amountPaid[c as keyof typeof r.amountPaid] || 0) > 0 && <div key={c}>{`${formatCurrency(r.amountPaid[c as keyof typeof r.amountPaid])} ${c.toUpperCase()}`}</div>)}
-                                            </TableCell>
-                                            <TableCell>{r.note}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow><TableCell colSpan={4} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell></TableRow>
-                                    )}
                                 </TableBody>
                             </Table>
                         </CardContent>
