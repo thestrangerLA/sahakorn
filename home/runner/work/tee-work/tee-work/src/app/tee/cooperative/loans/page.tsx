@@ -37,7 +37,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
@@ -76,22 +76,24 @@ export default function CooperativeLoansPage() {
             const totalPaid: CurrencyValues = { ...initialCurrencyValues };
             const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
             const actualProfit: CurrencyValues = { ...initialCurrencyValues };
+            const principal: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const principal = loan.amount?.[c as keyof typeof loan.amount] || 0;
-                const interestAmount = principal * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c as keyof typeof principalAndInterest] = principal + interestAmount;
+                const p = loan.amount?.[c] || 0;
+                principal[c] = p;
+                const interestAmount = p * ((loan.interestRate || 0) / 100);
+                principalAndInterest[c] = p + interestAmount;
 
-                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
-                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
+                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
                 
-                if (principalAndInterest[c as keyof typeof principalAndInterest] > 0) {
-                  const paidRatio = totalPaid[c as keyof typeof totalPaid] / principalAndInterest[c as keyof typeof principalAndInterest];
-                  actualProfit[c as keyof typeof actualProfit] = interestAmount * paidRatio;
+                if (principalAndInterest[c] > 0) {
+                  const paidRatio = totalPaid[c] / principalAndInterest[c];
+                  actualProfit[c] = interestAmount * paidRatio;
                 }
             });
 
-            return { ...loan, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
+            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
         });
     }, [loans, repayments]);
 
@@ -102,7 +104,7 @@ export default function CooperativeLoansPage() {
 
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
-                 totalLoanAmount[c] += loan.amount?.[c] || 0;
+                 totalLoanAmount[c] += loan.principal[c] || 0;
                  totalPaidAmount[c] += loan.totalPaid[c];
                  if (loan.status !== 'paid_off' && loan.status !== 'rejected') {
                     totalOutstandingAmount[c] += loan.outstandingBalance[c];
@@ -195,6 +197,7 @@ export default function CooperativeLoansPage() {
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
+                                    <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
                                     <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
@@ -205,7 +208,7 @@ export default function CooperativeLoansPage() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loansWithDetails.length > 0 ? (
                                     loansWithDetails.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
@@ -215,8 +218,15 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                                    const amount = loan.principal[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
+                                             <TableCell className="text-right text-green-500">
+                                                {currencies.map(c => {
+                                                    const amount = loan.amount?.[c] || 0;
+                                                    const profit = amount * (loan.interestRate / 100);
+                                                    return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">
@@ -262,7 +272,7 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -286,4 +296,4 @@ export default function CooperativeLoansPage() {
             </AlertDialog>
         </div>
     );
-}
+    
