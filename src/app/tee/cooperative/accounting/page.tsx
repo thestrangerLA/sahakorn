@@ -18,8 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
-import { listenToCooperativeAccountSummary } from '@/services/cooperativeAccountancyService';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';

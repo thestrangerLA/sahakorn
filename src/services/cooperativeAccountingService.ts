@@ -1,16 +1,55 @@
 
 
-import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
-import type { Transaction, Currency, Account } from '@/lib/types'
+import type { Transaction, CurrencyValues, Account, AccountSummary } from '@/lib/types'
 
 const transactionsCollectionRef = collection(db, 'cooperative-transactions');
+const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
+
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const initialSummaryState: Omit<AccountSummary, 'id'> = {
+    capital: { ...initialCurrencyValues },
+    cash: { ...initialCurrencyValues },
+    transfer: { ...initialCurrencyValues },
+};
+
+const ensureInitialState = async () => {
+    const docSnap = await getDoc(summaryDocRef);
+    if (!docSnap.exists()) {
+        await setDoc(summaryDocRef, initialSummaryState);
+    }
+};
+
+export const listenToCooperativeAccountSummary = (callback: (summary: AccountSummary | null) => void) => {
+    ensureInitialState();
+    
+    const unsubscribe = onSnapshot(summaryDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            callback({
+                id: docSnapshot.id,
+                capital: data.capital || { ...initialCurrencyValues },
+                cash: data.cash || { ...initialCurrencyValues },
+                transfer: data.transfer || { ...initialCurrencyValues },
+            } as AccountSummary);
+        } else {
+            callback({ id: 'latest', ...initialSummaryState });
+        }
+    });
+    return unsubscribe;
+};
+
+export const updateCooperativeAccountSummary = async (summary: Partial<Omit<AccountSummary, 'id'>>) => {
+    await setDoc(summaryDocRef, summary, { merge: true });
+};
+
 
 export async function createTransaction(
   debitAccountId: string,
   creditAccountId: string,
-  amount: Currency,
+  amount: CurrencyValues,
   description: string,
   date: Date,
 ) {
@@ -61,7 +100,7 @@ export async function deleteTransactionGroup(transactionGroupId: string) {
 }
 
 
-export function sumCurrency(a: Currency, b: Currency): Currency {
+export function sumCurrency(a: CurrencyValues, b: CurrencyValues): CurrencyValues {
   return {
     kip: (a.kip || 0) + (b.kip || 0),
     thb: (a.thb || 0) + (b.thb || 0),
@@ -97,8 +136,9 @@ export const listenToCooperativeTransactions = (
     return unsubscribe;
 };
 
-export function getAccountBalances(transactions: Transaction[]): Record<string, Currency> {
-    const balances: Record<string, Currency> = {};
+export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
+    const balances: Record<string, CurrencyValues> = {};
+    const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
     transactions.forEach(tx => {
         if (!balances[tx.accountId]) {
@@ -107,7 +147,6 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
         const multiplier = tx.type === 'debit' ? 1 : -1;
         
-        const currencyKeys: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
         currencyKeys.forEach(currencyKey => {
             if (tx.amount && tx.amount[currencyKey]) {
                 balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
