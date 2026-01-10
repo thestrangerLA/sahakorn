@@ -128,7 +128,8 @@ export default function CooperativeIncomeExpensePage() {
         return calculateSummary(thisYearTxs);
     }, [transactions]);
     
-    const handleDeleteTransaction = async (groupId: string) => {
+    const handleDeleteTransaction = async (transaction: Transaction) => {
+        const groupId = transaction.transactionGroupId;
         if (!groupId) {
             toast({
                 title: "ຂໍ້ມູນຜິດພາດ",
@@ -302,7 +303,7 @@ export default function CooperativeIncomeExpensePage() {
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>ຍົກເລີກ</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx.transactionGroupId)}>ຢືນຢັນ</AlertDialogAction>
+                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx)}>ຢືນຢັນ</AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>

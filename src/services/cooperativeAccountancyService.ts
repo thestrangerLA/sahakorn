@@ -33,33 +33,3 @@ const initialSummaryState: Omit<AccountSummary, 'id'> = {
     cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
 };
-
-const ensureInitialState = async () => {
-    const docSnap = await getDoc(summaryDocRef);
-    if (!docSnap.exists()) {
-        await setDoc(summaryDocRef, initialSummaryState);
-    }
-};
-
-export const listenToCooperativeAccountSummary_DEPRECATED = (callback: (summary: AccountSummary | null) => void) => {
-    ensureInitialState();
-    
-    const unsubscribe = onSnapshot(summaryDocRef, (docSnapshot) => {
-        if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
-            callback({
-                id: docSnapshot.id,
-                capital: data.capital || { ...initialCurrencyValues },
-                cash: data.cash || { ...initialCurrencyValues },
-                transfer: data.transfer || { ...initialCurrencyValues },
-            } as AccountSummary);
-        } else {
-            callback({ id: 'latest', ...initialSummaryState });
-        }
-    });
-    return unsubscribe;
-};
-
-export const updateCooperativeAccountSummary_DEPRECATED = async (summary: Partial<Omit<AccountSummary, 'id'>>) => {
-    await setDoc(summaryDocRef, summary, { merge: true });
-};
