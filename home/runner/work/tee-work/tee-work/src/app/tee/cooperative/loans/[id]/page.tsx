@@ -44,6 +44,8 @@ type NewRepayment = {
 };
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+
 
 export default function LoanDetailPage() {
     const params = useParams();
@@ -75,34 +77,37 @@ export default function LoanDetailPage() {
     }, [id]);
 
     const { totalPaid, outstandingBalance, newOutstandingBalance } = useMemo(() => {
-        const initialTotals = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const initialTotals = { ...initialCurrencyValues };
         if (!loan) return { totalPaid: {...initialTotals}, outstandingBalance: {...initialTotals}, newOutstandingBalance: {...initialTotals} };
 
         const totalLoanAmountWithInterest = { ...initialTotals };
         currencies.forEach(c => {
-             totalLoanAmountWithInterest[c] = (loan.amount[c] || 0) * (1 + (loan.interestRate || 0) / 100);
+             const key = c as keyof typeof loan.amount;
+             totalLoanAmountWithInterest[c] = (loan.amount[key] || 0) * (1 + (loan.interestRate || 0) / 100);
         });
         
         const totalPaid = repayments.reduce((sum, r) => {
             currencies.forEach(c => {
-                sum[c] += r.amountPaid?.[c] || 0;
+                const key = c as keyof typeof r.amountPaid;
+                sum[c] += r.amountPaid?.[key] || 0;
             });
             return sum;
-        }, { ...initialTotals });
+        }, { ...initialCurrencyValues });
         
-        const outstanding = { ...initialTotals };
+        const outstanding = { ...initialCurrencyValues };
         currencies.forEach(c => {
             outstanding[c] = totalLoanAmountWithInterest[c] - totalPaid[c];
         });
 
         const totalNewRepayment = newRepayments.reduce((sum, r) => {
             currencies.forEach(c => {
-                sum[c] += r.amount?.[c] || 0;
+                 const key = c as keyof typeof r.amount;
+                sum[c] += r.amount?.[key] || 0;
             });
             return sum;
-        }, { ...initialTotals });
+        }, { ...initialCurrencyValues });
 
-        const newOutstanding = { ...initialTotals };
+        const newOutstanding = { ...initialCurrencyValues };
         currencies.forEach(c => {
             newOutstanding[c] = outstanding[c] - totalNewRepayment[c];
         });
@@ -117,7 +122,7 @@ export default function LoanDetailPage() {
             return;
         }
         
-        const paymentsToSave = newRepayments.filter(r => currencies.some(c => r.amount[c] > 0));
+        const paymentsToSave = newRepayments.filter(r => currencies.some(c => (r.amount[c as keyof typeof r.amount] || 0) > 0));
         if (paymentsToSave.length === 0) {
             toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຕ້ອງການຊຳລະ", variant: "destructive" });
             return;
@@ -143,7 +148,8 @@ export default function LoanDetailPage() {
                 if (field === 'date') {
                     return { ...row, date: value as Date };
                 }
-                return { ...row, amount: { ...row.amount, [field]: Number(value) } };
+                const typedField = field as keyof CurrencyValues;
+                return { ...row, amount: { ...row.amount, [typedField]: Number(value) } };
             }
             return row;
         }));
@@ -178,14 +184,16 @@ export default function LoanDetailPage() {
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     {currencies.map(c => {
-                        const amount = loan.amount?.[c] || 0;
+                        const key = c as keyof typeof loan.amount;
+                        const amount = loan.amount?.[key] || 0;
                         if (amount === 0) return null;
                         return <StatCard key={c} title={`ເງິນກູ້ຢືມ (${c.toUpperCase()})`} value={`${formatCurrency(amount)}`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
                     })}
                     <StatCard title="%ດອກເບ້ຍ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
                     {currencies.map(c => {
-                        const amount = outstandingBalance[c];
-                         if ((loan.amount?.[c] || 0) === 0 && amount === 0) return null;
+                        const key = c as keyof typeof loan.amount;
+                        const amount = outstandingBalance[key];
+                         if ((loan.amount?.[key] || 0) === 0 && amount === 0) return null;
                         return <StatCard key={c} title={`ຍອດຄ້າງຊຳລະ (${c.toUpperCase()})`} value={`${formatCurrency(amount)}`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                     })}
                 </div>
@@ -275,11 +283,12 @@ export default function LoanDetailPage() {
                             </CardHeader>
                             <CardContent>
                                {currencies.map(c => {
-                                   if ((loan.amount?.[c] || 0) === 0 && newOutstandingBalance[c] === 0) return null;
+                                   const key = c as keyof typeof loan.amount;
+                                   if ((loan.amount?.[key] || 0) === 0 && newOutstandingBalance[key] === 0) return null;
                                    return (
                                      <div key={c} className="flex justify-between items-center py-1">
                                        <span className="text-sm font-medium">{c.toUpperCase()}:</span>
-                                       <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance[c])}</span>
+                                       <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance[key])}</span>
                                    </div>
                                 )})}
                             </CardContent>
@@ -291,5 +300,3 @@ export default function LoanDetailPage() {
     );
 }
 
-
-    
