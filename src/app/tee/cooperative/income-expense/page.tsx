@@ -17,7 +17,8 @@ import {
 import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth, isSameMonth, isSameYear } from 'date-fns';
+import { lo } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -30,26 +31,58 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyValues }) => (
+const SummaryCard = ({ title, balances, titleClassName }: { title: string, balances: CurrencyValues, titleClassName?: string }) => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <CardTitle className={`text-sm font-medium ${titleClassName}`}>{title}</CardTitle>
         </CardHeader>
         <CardContent>
             {currencies.map(c => (
                  (balances[c] || 0) !== 0 && (
                  <div key={c} className="text-lg font-bold">
-                    <span className="font-semibold uppercase">{c}: </span>
+                    <span className="font-semibold uppercase text-muted-foreground">{c}: </span>
                     <span className={balances[c] < 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(balances[c] || 0)}</span>
                 </div>)
             ))}
+             {Object.values(balances).every(v => v === 0) && <div className="text-lg font-bold text-muted-foreground">-</div>}
         </CardContent>
     </Card>
 );
 
+const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues; expense: CurrencyValues; net: CurrencyValues } => {
+    const income = { ...initialCurrencyValues };
+    const expense = { ...initialCurrencyValues };
+
+    transactions.forEach(tx => {
+        const account = defaultAccounts.find(a => a.id === tx.accountId);
+        if (!account || (account.type !== 'income' && account.type !== 'expense')) return;
+
+        const multiplier = tx.type === 'debit' ? 1 : -1;
+        
+        currencies.forEach(c => {
+            const amount = (tx.amount?.[c] || 0) * multiplier;
+            if (account.type === 'income') {
+                income[c] -= amount;
+            } else if (account.type === 'expense') {
+                expense[c] += amount;
+            }
+        });
+    });
+
+    const net = currencies.reduce((acc, c) => {
+        acc[c] = income[c] - expense[c];
+        return acc;
+    }, { ...initialCurrencyValues });
+
+    return { income, expense, net };
+};
+
 export default function CooperativeIncomeExpensePage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
+    const [filter, setFilter] = useState<{ year: number | 'all'; month: number | 'all' }>({
+        year: new Date().getFullYear(),
+        month: new Date().getMonth(),
+    });
     
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
@@ -57,80 +90,67 @@ export default function CooperativeIncomeExpensePage() {
     }, []);
     
     const filteredTransactions = useMemo(() => {
-        const start = startOfMonth(displayMonth);
-        const end = endOfMonth(displayMonth);
-        return transactions.filter(tx => isWithinInterval(tx.date, { start, end }));
-    }, [transactions, displayMonth]);
+        return transactions.filter(tx => {
+            if (!tx.date) return false;
+            const txYear = getYear(tx.date);
+            const txMonth = getMonth(tx.date);
 
-    const summary = useMemo(() => {
-        const income = { ...initialCurrencyValues };
-        const expense = { ...initialCurrencyValues };
+            const yearMatch = filter.year === 'all' || txYear === filter.year;
+            const monthMatch = filter.month === 'all' || txMonth === filter.month;
 
-        filteredTransactions.forEach(tx => {
-            const account = defaultAccounts.find(a => a.id === tx.accountId);
-            if (!account) return;
-
-            const multiplier = tx.type === 'debit' ? 1 : -1;
-            
-            currencies.forEach(c => {
-                const amount = (tx.amount?.[c] || 0) * multiplier;
-                if (account.type === 'income') {
-                    income[c] -= amount; // Incomes are credited, so we reverse the sign
-                } else if (account.type === 'expense') {
-                    expense[c] += amount; // Expenses are debited
-                }
-            });
+            if (filter.year !== 'all' && filter.month !== 'all') {
+                return yearMatch && monthMatch;
+            }
+            if (filter.year !== 'all') {
+                return yearMatch;
+            }
+            return true; // "all years"
         });
+    }, [transactions, filter]);
 
-        const net = currencies.reduce((acc, c) => {
-            acc[c] = income[c] - expense[c];
-            return acc;
-        }, { ...initialCurrencyValues });
-
-        return { income, expense, net };
-    }, [filteredTransactions]);
+    const summaryForSelectedPeriod = useMemo(() => calculateSummary(filteredTransactions), [filteredTransactions]);
+    
+    const summaryForThisMonth = useMemo(() => {
+        const now = new Date();
+        const thisMonthTxs = transactions.filter(tx => tx.date && isSameMonth(tx.date, now) && isSameYear(tx.date, now));
+        return calculateSummary(thisMonthTxs);
+    }, [transactions]);
+    
+    const summaryForThisYear = useMemo(() => {
+        const now = new Date();
+        const thisYearTxs = transactions.filter(tx => tx.date && isSameYear(tx.date, now));
+        return calculateSummary(thisYearTxs);
+    }, [transactions]);
     
     const MonthYearSelector = () => {
         const currentYear = getYear(new Date());
         const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
         years.push(2025);
-        const uniqueYears = [...new Set(years)].sort();
+        const uniqueYears = [...new Set(years)].sort((a, b) => b - a);
 
-        const months = Array.from({ length: 12 }, (_, i) => setMonth(new Date(), i));
-
+        const months = Array.from({ length: 12 }, (_, i) => ({ value: i, label: format(setMonth(new Date(), i), 'LLLL', { locale: lo }) }));
+        
         return (
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2">
-                        {format(displayMonth, "LLLL yyyy")}
-                        <ChevronDown className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    {uniqueYears.map(year => (
-                         <DropdownMenuSub key={year}>
-                            <DropdownMenuSubTrigger>
-                                <span>{year + 543}</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                    {months.map(month => (
-                                        <DropdownMenuItem 
-                                            key={getMonth(month)} 
-                                            onClick={() => {
-                                                const newDate = new Date(year, getMonth(month), 1);
-                                                setDisplayMonth(newDate);
-                                            }}
-                                        >
-                                            {format(month, "LLLL")}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuSubContent>
-                             </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex gap-2">
+                <Select value={filter.month === 'all' ? 'all' : String(filter.month)} onValueChange={v => setFilter(f => ({ ...f, month: v === 'all' ? 'all' : Number(v) }))}>
+                    <SelectTrigger className="w-36">
+                        <SelectValue placeholder="ເດືອນ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">ທຸກໆເດືອນ</SelectItem>
+                        {months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                 <Select value={filter.year === 'all' ? 'all' : String(filter.year)} onValueChange={v => setFilter(f => ({ ...f, year: v === 'all' ? 'all' : Number(v) }))}>
+                    <SelectTrigger className="w-32">
+                        <SelectValue placeholder="ປີ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">ທຸກໆປີ</SelectItem>
+                        {uniqueYears.map(y => <SelectItem key={y} value={String(y)}>ປີ {y + 543}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
         );
     };
 
@@ -149,11 +169,21 @@ export default function CooperativeIncomeExpensePage() {
                     <MonthYearSelector />
                 </div>
             </header>
-            <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <SummaryCard title="ລາຍຮັບລວມ" balances={summary.income} />
-                    <SummaryCard title="ລາຍຈ່າຍລວມ" balances={summary.expense} />
-                    <SummaryCard title="ກຳໄລ/ຂາດທຶນສຸດທິ" balances={summary.net} />
+            <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <SummaryCard title="ລາຍຮັບລວມ (ເດືອນນີ້)" balances={summaryForThisMonth.income} titleClassName="text-blue-600" />
+                    <SummaryCard title="ລາຍຈ່າຍລວມ (ເດືອນນີ້)" balances={summaryForThisMonth.expense} titleClassName="text-blue-600" />
+                    <SummaryCard title="ກຳໄລ/ຂາດທຶນ (ເດືອນນີ້)" balances={summaryForThisMonth.net} titleClassName="text-blue-600" />
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <SummaryCard title="ລາຍຮັບລວມ (ປີນີ້)" balances={summaryForThisYear.income} titleClassName="text-purple-600" />
+                    <SummaryCard title="ລາຍຈ່າຍລວມ (ປີນີ້)" balances={summaryForThisYear.expense} titleClassName="text-purple-600" />
+                    <SummaryCard title="ກຳໄລ/ຂາດທຶນ (ປີນີ້)" balances={summaryForThisYear.net} titleClassName="text-purple-600" />
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <SummaryCard title="ລາຍຮັບລວມ (ທີ່ເລືອກ)" balances={summaryForSelectedPeriod.income} />
+                    <SummaryCard title="ລາຍຈ່າຍລວມ (ທີ່ເລືອກ)" balances={summaryForSelectedPeriod.expense} />
+                    <SummaryCard title="ກຳໄລ/ຂາດທຶນສຸດທິ (ທີ່ເລືອກ)" balances={summaryForSelectedPeriod.net} />
                 </div>
                 <Card>
                     <CardHeader>
@@ -179,9 +209,6 @@ export default function CooperativeIncomeExpensePage() {
                                     }
 
                                     const isIncome = account.type === 'income';
-                                    // In double entry, income is a credit, expense is a debit.
-                                    // A credit transaction on an income account is an increase.
-                                    // A debit transaction on an expense account is an increase.
                                     const effectiveType = (isIncome && tx.type === 'credit') || (!isIncome && tx.type === 'debit') ? 'income' : 'expense';
 
                                     return (
@@ -214,4 +241,3 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
-
