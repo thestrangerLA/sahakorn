@@ -15,7 +15,7 @@ export type Currency = {
   kip: number;
   thb: number;
   usd: number;
-  cny?: number;
+  cny: number;
 };
 
 export type AccountType =
@@ -107,7 +107,6 @@ export interface DrugCreditorEntry {
   isPaid: boolean;
   createdAt: Date;
 }
-
 
 export interface TourProgram {
   id: string;
@@ -283,7 +282,12 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: {
+  principalPaid: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
+  interestPaid: {
     kip: number;
     thb: number;
     usd: number;
@@ -293,8 +297,9 @@ export interface LoanRepayment {
 }
 
 export interface AccountingPeriod {
-  id: string;
+  id: string; // e.g., "2024-08"
   year: number;
   month: number;
   isClosed: boolean;
+  closedAt?: Date;
 }

@@ -81,12 +81,12 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
         const multiplier = tx.type === 'debit' ? 1 : -1;
         
-        for (const key in tx.amount) {
-            const currencyKey = key as keyof Currency;
+        const currencyKeys: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
+        currencyKeys.forEach(currencyKey => {
             if (tx.amount[currencyKey]) {
-                balances[tx.accountId][currencyKey] += tx.amount[currencyKey] * multiplier;
+                balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
             }
-        }
+        });
     });
 
     return balances;

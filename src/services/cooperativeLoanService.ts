@@ -1,7 +1,7 @@
 
 
 import { db } from '@/lib/firebase';
-import type { Loan, LoanRepayment, LoanType, CurrencyValues, CooperativeMember } from '@/lib/types';
+import type { Loan, LoanRepayment, LoanType, CurrencyValues, CooperativeMember, Currency } from '@/lib/types';
 import { 
     collection, 
     onSnapshot, 
@@ -21,12 +21,12 @@ import {
     writeBatch,
     limit
 } from 'firebase/firestore';
+import { createTransaction } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const loanTypesCollectionRef = collection(db, 'cooperativeLoanTypes');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
-
 
 export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
@@ -41,8 +41,6 @@ export const listenToCooperativeLoans = (
                 id: doc.id, 
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
-                approvalDate: (data.approvalDate as Timestamp)?.toDate(),
-                disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
@@ -65,8 +63,6 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 id: docSnap.id,
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp).toDate(),
-                approvalDate: (data.approvalDate as Timestamp)?.toDate(),
-                disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp).toDate(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
@@ -86,26 +82,12 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             id: docSnap.id,
             ...data,
             applicationDate: (data.applicationDate as Timestamp).toDate(),
-            approvalDate: (data.approvalDate as Timestamp)?.toDate(),
-            disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
             amount: data.amount || { kip: 0, thb: 0, usd: 0 },
         } as Loan;
     }
     return null;
 }
-
-export const listenToCooperativeLoanTypes = (callback: (types: LoanType[]) => void) => {
-    const q = query(loanTypesCollectionRef, orderBy('name'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const types: LoanType[] = [];
-        querySnapshot.forEach((doc) => {
-            types.push({ id: doc.id, ...doc.data() } as LoanType);
-        });
-        callback(types);
-    });
-    return unsubscribe;
-};
 
 export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
     const newLoan = {
@@ -120,6 +102,15 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
     };
     const docRef = await addDoc(loansCollectionRef, newLoan);
+
+    // Create accounting transaction for loan disbursement
+    await createTransaction(
+        'loan_receivable',
+        'cash',
+        newLoan.amount as Currency,
+        `Disburse Loan #${newLoan.loanCode}`
+    );
+
     return docRef.id;
 };
 
@@ -154,7 +145,8 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
+                principalPaid: data.principalPaid || { kip: 0, thb: 0, usd: 0 },
+                interestPaid: data.interestPaid || { kip: 0, thb: 0, usd: 0 },
                 note: data.note || '',
             } as LoanRepayment);
         });
@@ -174,7 +166,8 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
+                principalPaid: data.principalPaid || { kip: 0, thb: 0, usd: 0 },
+                interestPaid: data.interestPaid || { kip: 0, thb: 0, usd: 0 },
                 note: data.note || '',
             } as LoanRepayment);
         });
@@ -185,28 +178,51 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: { kip: number, thb: number, usd: number }; date: Date, note?: string}[]) => {
-  const batch = writeBatch(db);
-  repayments.forEach(r => {
-      const newRepaymentRef = doc(repaymentsCollectionRef);
-      batch.set(newRepaymentRef, {
-          loanId,
-          repaymentDate: Timestamp.fromDate(r.date),
-          amountPaid: r.amount,
-          note: r.note || '',
-          createdAt: serverTimestamp(),
-      });
-  });
-  await batch.commit();
-};
+export const repayLoan = async (loanId: string, repaymentDate: Date, principalPaid: Currency, interestPaid: Currency, note: string) => {
+    const batch = writeBatch(db);
 
+    // 1. Record the repayment
+    const newRepaymentRef = doc(repaymentsCollectionRef);
+    batch.set(newRepaymentRef, {
+      loanId,
+      repaymentDate: Timestamp.fromDate(repaymentDate),
+      principalPaid,
+      interestPaid,
+      note,
+      createdAt: serverTimestamp(),
+    });
+
+    // 2. Create accounting transactions for principal
+    if (Object.values(principalPaid).some(v => v > 0)) {
+        await createTransaction(
+            'cash',
+            'loan_receivable',
+            principalPaid,
+            `Repay Principal Loan#${loanId.substring(0,5)}`
+        );
+    }
+
+    // 3. Create accounting transactions for interest
+    if (Object.values(interestPaid).some(v => v > 0)) {
+        await createTransaction(
+            'cash',
+            'interest_income',
+            interestPaid,
+            `Repay Interest Loan#${loanId.substring(0,5)}`
+        );
+    }
+};
 
 export const deleteLoanRepayment = async (repaymentId: string) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
     await deleteDoc(repaymentDocRef);
 };
 
-export const updateLoanRepayment = async (repaymentId: string, updatedFields: Partial<Omit<LoanRepayment, 'id' | 'createdAt' | 'loanId' | 'repaymentDate'>>) => {
+export const updateLoanRepayment = async (repaymentId: string, updatedFields: Partial<Omit<LoanRepayment, 'id' | 'createdAt' | 'loanId'>>) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
-    await updateDoc(repaymentDocRef, updatedFields);
+    const dataToUpdate: any = { ...updatedFields };
+    if (updatedFields.repaymentDate) {
+        dataToUpdate.repaymentDate = Timestamp.fromDate(updatedFields.repaymentDate);
+    }
+    await updateDoc(repaymentDocRef, dataToUpdate);
 };
