@@ -187,7 +187,7 @@ export interface ApplianceStockLog {
 
 export type CurrencyValues = {
     kip: number;
-    baht: number;
+    thb: number;
     usd: number;
     cny: number;
 };
@@ -247,16 +247,17 @@ export interface CooperativeDeposit {
 export interface Loan {
   id: string;
   memberId: string;
-  loanTypeId: string;
   loanCode: string;
-  amount: CurrencyValues;
+  amount: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
   interestRate: number; // yearly
   term: number; // in months
   purpose: string;
   applicationDate: Date;
-  approvalDate?: Date;
-  disbursementDate?: Date;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'paid_off' | 'overdue';
+  status: 'pending' | 'active' | 'paid_off' | 'rejected';
   createdAt: Date;
 }
 
@@ -273,9 +274,12 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: CurrencyValues;
-  principal: CurrencyValues;
-  interest: CurrencyValues;
-  outstandingBalance: CurrencyValues;
+  amountPaid: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
+  note?: string;
+  createdBy?: string;
   createdAt: Date;
 }
