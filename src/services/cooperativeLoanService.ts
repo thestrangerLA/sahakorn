@@ -202,3 +202,8 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
     await deleteDoc(repaymentDocRef);
 };
+
+export const updateLoanRepayment = async (repaymentId: string, updatedFields: Partial<Omit<LoanRepayment, 'id' | 'createdAt' | 'loanId' | 'repaymentDate'>>) => {
+    const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
+    await updateDoc(repaymentDocRef, updatedFields);
+};
