@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Combine, MinusCircle } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Combine, MinusCircle, Pencil, Banknote } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -16,9 +16,11 @@ import { format, startOfDay } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog } from "@/components/ui/dialog"
+import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary, updateCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
@@ -31,11 +33,14 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyValues }) => (
-    <Card>
+const SummaryCard = ({ title, balances, icon, onClick, className }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, onClick?: () => void, className?: string }) => (
+    <Card className={`${onClick ? 'cursor-pointer hover:bg-muted/80' : ''} ${className || ''}`} onClick={onClick}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            <Scale className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2">
+               <CardTitle className="text-sm font-medium">{title}</CardTitle>
+               {onClick && <Pencil className="h-3 w-3 text-muted-foreground" />}
+            </div>
+            {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
         </CardHeader>
         <CardContent>
             {currencies.map(c => (
@@ -65,6 +70,8 @@ export default function CooperativeAccountingPage() {
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
     const [summary, setSummary] = useState<AccountSummary | null>(null);
+    const [editingField, setEditingField] = useState<'capital' | 'cash' | 'transfer' | 'bankAccount' | null>(null);
+    const [editingValues, setEditingValues] = useState<CurrencyValues | null>(null);
 
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -96,9 +103,10 @@ export default function CooperativeAccountingPage() {
     const reconciliationData = useMemo(() => {
         if (!summary) return null;
         
-        const actualCash = summary.cash;
-        const actualTransfer = summary.transfer;
-        const actualTotal = currencies.reduce((acc, c) => ({...acc, [c]: (actualCash[c] || 0) + (actualTransfer[c] || 0) }), {...initialCurrencyValues});
+        const actualTotal = currencies.reduce((acc, c) => ({
+            ...acc, 
+            [c]: (summary.cash[c] || 0) + (summary.transfer[c] || 0) + (summary.bankAccount?.[c] || 0) 
+        }), {...initialCurrencyValues});
 
         const calculatedCash = accountBalances['cash'] || initialCurrencyValues;
         const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; 
@@ -109,6 +117,15 @@ export default function CooperativeAccountingPage() {
         return { actualTotal, calculatedTotal, difference };
 
     }, [summary, accountBalances]);
+
+    const totalMoney = useMemo(() => {
+        if (!summary) return { ...initialCurrencyValues };
+        return currencies.reduce((acc, c) => ({
+            ...acc,
+            [c]: (summary.cash[c] || 0) + (summary.transfer[c] || 0) + (summary.bankAccount?.[c] || 0)
+        }), { ...initialCurrencyValues });
+    }, [summary]);
+
 
     const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
         setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
@@ -199,6 +216,36 @@ export default function CooperativeAccountingPage() {
         }
     }
 
+     const openEditDialog = (field: 'capital' | 'cash' | 'transfer' | 'bankAccount') => {
+        if (!summary) return;
+        setEditingField(field);
+        setEditingValues(summary[field] || { ...initialCurrencyValues });
+    };
+
+    const handleSaveSummary = async () => {
+        if (!editingField || !editingValues) return;
+        try {
+            await updateCooperativeAccountSummary({ [editingField]: editingValues });
+            toast({ title: "ບັນທຶກຍອດເງິນສຳເລັດ" });
+            setEditingField(null);
+            setEditingValues(null);
+        } catch (error) {
+             console.error("Error saving summary: ", error);
+             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    };
+    
+    const getDialogTitle = () => {
+        switch(editingField) {
+            case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
+            case 'cash': return 'ແກ້ໄຂເງິນສົດ';
+            case 'transfer': return 'ແກ້ໄຂເງິນໂอน';
+            case 'bankAccount': return 'ແກ້ໄຂເງິນໃນບັນຊີ';
+            default: return 'ແກ້ໄຂ';
+        }
+    };
+
+
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -208,10 +255,12 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
                      {accounts.filter(a => a.type === 'asset').map(acc => (
                          <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
                      ))}
+                     <SummaryCard title="ເງິນໃນບັນຊີ" balances={summary?.bankAccount || initialCurrencyValues} icon={<Banknote className="h-4 w-4" />} onClick={() => openEditDialog('bankAccount')} />
+                     <SummaryCard title="ລວມເງິນຄົງເຫຼືອ" balances={totalMoney} icon={<Combine className="h-4 w-4 text-green-600" />} />
                      {reconciliationData && (
                         <Card className="border-blue-500 border-2">
                              <CardHeader className="pb-2">
@@ -375,6 +424,32 @@ export default function CooperativeAccountingPage() {
                         </CardContent>
                     </Card>
                 </div>
+                 {editingField && editingValues && (
+                    <Dialog open={!!editingField} onOpenChange={(isOpen) => !isOpen && setEditingField(null)}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>{getDialogTitle()}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-4 py-4">
+                                {currencies.map(c => (
+                                    <div key={c} className="grid gap-2">
+                                        <Label htmlFor={`summary-edit-${c}`} className="uppercase">{c}</Label>
+                                        <Input
+                                            id={`summary-edit-${c}`}
+                                            type="number"
+                                            value={editingValues[c] || ''}
+                                            onChange={(e) => setEditingValues(prev => prev ? { ...prev, [c]: Number(e.target.value) } : null)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setEditingField(null)}>ຍົກເລີກ</Button>
+                                <Button onClick={handleSaveSummary}>ບັນທຶກ</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </main>
         </div>
     );
