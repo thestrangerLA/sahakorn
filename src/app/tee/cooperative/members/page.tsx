@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown, Search } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
@@ -195,6 +195,7 @@ export default function CooperativeMembersPage() {
     const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
     const [selectedMember, setSelectedMember] = useState<CooperativeMember | null>(null);
     const [isAddDepositOpen, setAddDepositOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const { toast } = useToast();
 
     useEffect(() => {
@@ -207,7 +208,12 @@ export default function CooperativeMembersPage() {
     }, []);
     
     const membersWithTotalDeposits = useMemo(() => {
-        return members.map(member => {
+        const filteredMembers = members.filter(member => 
+            member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            member.memberId.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        return filteredMembers.map(member => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
             const totalDeposits = {
                 kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
@@ -217,7 +223,7 @@ export default function CooperativeMembersPage() {
             const shares = Math.floor(totalDeposits.kip / 100000);
             return { ...member, totalDeposits, shares, deposits: memberDeposits };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
-    }, [members, deposits]);
+    }, [members, deposits, searchQuery]);
     
     const filteredDeposits = (memberDeposits: CooperativeDeposit[]) => {
         const start = startOfMonth(displayMonth);
@@ -356,8 +362,22 @@ export default function CooperativeMembersPage() {
                 </div>
                 <Card>
                     <CardHeader>
-                        <CardTitle>ລາຍຊື່ສະມາຊິກ</CardTitle>
-                        <CardDescription>ກົດທີ່ລາຍການເພື່ອເບິ່ງປະຫວັດການຝາກເງິນ</CardDescription>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>ລາຍຊື່ສະມາຊິກ</CardTitle>
+                                <CardDescription>ກົດທີ່ລາຍການເພື່ອເບິ່ງປະຫວັດການຝາກເງິນ</CardDescription>
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    type="search"
+                                    placeholder="ຄົ້ນຫາຕາມຊື່ ຫຼື ລະຫັດ..."
+                                    className="pl-8 sm:w-[300px]"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
@@ -449,5 +469,3 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
-
-    
