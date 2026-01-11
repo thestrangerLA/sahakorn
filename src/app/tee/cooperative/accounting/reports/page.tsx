@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FilePieChart, BookOpen, ChevronRight, FileText } from "lucide-react";
+import { ArrowLeft, FilePieChart, BookOpen, ChevronRight, FileText, Landmark } from "lucide-react";
 
 
 export default function CooperativeReportsPage() {
@@ -30,8 +30,8 @@ export default function CooperativeReportsPage() {
                         <CardDescription>ເລືອກປະເພດລາຍງານທີ່ຕ້ອງການເບິ່ງ</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <Link href="#">
-                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors opacity-50">
+                         <Link href="/tee/cooperative/accounting/reports/income-statement">
+                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                                 <CardHeader className="flex flex-row items-center justify-between">
                                     <div className='flex items-center gap-4'>
                                          <div className="bg-blue-100 p-3 rounded-full">
@@ -39,23 +39,23 @@ export default function CooperativeReportsPage() {
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg">ໃບລາຍງານຜົນໄດ້ຮັບ (Income Statement)</CardTitle>
-                                            <CardDescription>ສະແດງລາຍຮັບ, ລາຍຈ່າຍ, ແລະ ກໍາໄລ/ຂາດທຶນ (Coming Soon)</CardDescription>
+                                            <CardDescription>ສະແດງລາຍຮັບ, ລາຍຈ່າຍ, ແລະ ກໍາໄລ/ຂາດທຶນ</CardDescription>
                                         </div>
                                     </div>
                                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
                                 </CardHeader>
                             </Card>
                         </Link>
-                         <Link href="#">
-                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors opacity-50">
+                         <Link href="/tee/cooperative/accounting/reports/balance-sheet">
+                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                                 <CardHeader className="flex flex-row items-center justify-between">
                                     <div className='flex items-center gap-4'>
                                          <div className="bg-green-100 p-3 rounded-full">
-                                          <FileText className="h-6 w-6 text-green-600" />
+                                          <Landmark className="h-6 w-6 text-green-600" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg">ໃບສະຫຼຸບຊັບສິນ (Balance Sheet)</CardTitle>
-                                            <CardDescription>ສະແດງສິນຊັບ, ໜີ້ສິນ, ແລະ ທຶນ (Coming Soon)</CardDescription>
+                                            <CardDescription>ສະແດງສິນຊັບ, ໜີ້ສິນ, ແລະ ທຶນ</CardDescription>
                                         </div>
                                     </div>
                                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
