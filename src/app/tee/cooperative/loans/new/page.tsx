@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,8 +16,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronsUpDown, Handshake } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay } from "date-fns";
-import type { Loan, LoanType, CooperativeMember, CurrencyValues } from '@/lib/types';
-import { addLoan, listenToCooperativeLoanTypes } from '@/services/cooperativeLoanService';
+import type { Loan, CooperativeMember, CurrencyValues } from '@/lib/types';
+import { addLoan } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { useClientRouter } from '@/hooks/useClientRouter';
 import { cn } from '@/lib/utils';
@@ -91,13 +92,13 @@ export default function NewLoanPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = amount.kip + amount.thb + amount.usd;
+        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0);
         if (!selectedMemberId || totalAmount === 0 || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
-        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'loanTypeId'> = {
+        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
             memberId: selectedMemberId,
             loanCode,
             amount: amount,

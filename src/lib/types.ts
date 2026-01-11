@@ -38,8 +38,9 @@ export interface Transaction {
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';
-  amount: Currency;
+  amount: CurrencyValues;
   description: string;
+  reference?: string;
   createdAt: Date;
   businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
   saleId?: string;
@@ -266,9 +267,9 @@ export interface Loan {
   id: string;
   memberId: string;
   loanCode: string;
-  principal: Currency;
+  amount: CurrencyValues;
   interestRate: number; // yearly
-  termMonths: number; 
+  term: number; 
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';
@@ -279,8 +280,7 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  principalPaid: Currency;
-  interestPaid: Currency;
+  amountPaid: CurrencyValues;
   note: string;
   createdAt: Date;
 }

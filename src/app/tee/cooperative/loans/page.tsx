@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -76,58 +77,38 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const loansWithDetails = useMemo(() => {
-      const filteredLoans = loans.filter(loan => {
-        if (!selectedYear) return true;
-        return getYear(loan.applicationDate) === selectedYear;
-      });
-
-      return filteredLoans.map(loan => {
-        const loanRepayments = repayments.filter(r => r.loanId === loan.id);
-
-        const principal: CurrencyValues = { ...initialCurrencyValues };
-        const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
-        const totalPaid: CurrencyValues = { ...initialCurrencyValues };
-        const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-        const profit: CurrencyValues = { ...initialCurrencyValues };
-
-        currencies.forEach(c => {
-          const p = loan.amount?.[c] || 0;
-          principal[c] = p;
-
-          const interest = p * ((loan.interestRate || 0) / 100);
-          principalAndInterest[c] = p + interest;
-
-          totalPaid[c] = loanRepayments.reduce(
-            (sum, r) => sum + (r.amountPaid?.[c] || 0),
-            0
-          );
-
-          outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
-          
-          if(totalPaid[c] > 0) {
-              const paidTowardsInterest = Math.max(0, totalPaid[c] - p);
-              profit[c] = Math.min(paidTowardsInterest, interest);
-          }
+        const filteredLoans = loans.filter(loan => {
+            if (!selectedYear) return true;
+            return getYear(loan.applicationDate) === selectedYear;
         });
 
-        const totalOutstanding = currencies.reduce(
-          (sum, c) => sum + outstandingBalance[c],
-          0
-        );
+        return filteredLoans.map(loan => {
+            const loanRepayments = repayments.filter(r => r.loanId === loan.id);
+            
+            const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
+            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
+            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+            const profit: CurrencyValues = { ...initialCurrencyValues };
 
-        const calculatedStatus =
-          totalOutstanding <= 0.01 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
+            currencies.forEach(c => {
+                const p = loan.amount?.[c] || 0;
+                const interest = p * ((loan.interestRate || 0) / 100);
+                principalAndInterest[c] = p + interest;
 
-        return {
-          ...loan,
-          principal,
-          principalAndInterest,
-          totalPaid,
-          outstandingBalance,
-          profit,
-          calculatedStatus,
-        };
-      });
+                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
+
+                if(totalPaid[c] > 0) {
+                    const paidTowardsInterest = Math.max(0, totalPaid[c] - p);
+                    profit[c] = Math.min(paidTowardsInterest, interest);
+                }
+            });
+            
+            const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
+            const calculatedStatus = totalOutstanding <= 0.01 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
+
+            return { ...loan, principalAndInterest, totalPaid, outstandingBalance, profit, calculatedStatus };
+        });
     }, [loans, repayments, selectedYear]);
 
     const summary = useMemo(() => {
@@ -138,16 +119,16 @@ export default function CooperativeLoansPage() {
 
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
-                totalLoanAmount[c] += loan.principal[c] || 0;
-                totalPaidAmount[c] += loan.totalPaid[c] || 0;
-                totalProfitAmount[c] += loan.profit[c] || 0;
+                 totalLoanAmount[c] += loan.amount[c] || 0;
+                 totalPaidAmount[c] += loan.totalPaid[c] || 0;
+                 totalProfitAmount[c] += loan.profit[c] || 0;
 
-                if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
+                 if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
                     totalOutstandingAmount[c] += loan.outstandingBalance[c] || 0;
-                }
+                 }
             });
         });
-
+        
         return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount, totalProfitAmount };
     }, [loansWithDetails]);
 
@@ -286,13 +267,13 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principal[c] || 0;
+                                                    const amount = loan.amount[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-blue-500">
                                                 {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c] - loan.principal[c] || 0;
+                                                    const amount = loan.principalAndInterest[c] - (loan.amount[c] || 0);
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
@@ -369,4 +350,3 @@ export default function CooperativeLoansPage() {
     );
 }
 
-    
