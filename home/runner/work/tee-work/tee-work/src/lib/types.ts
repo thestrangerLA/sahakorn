@@ -35,6 +35,7 @@ export type UserAction =
   | 'RECEIVE_CASH'
   | 'PAY_CASH'
   | 'MEMBER_DEPOSIT'
+  | 'SET_MEMBER_DEPOSITS'
   | 'MEMBER_WITHDRAW'
   | 'SELL_CASH'
   | 'SELL_CREDIT'
@@ -44,9 +45,9 @@ export type UserAction =
   | 'QARD_HASAN_GIVE'
   | 'QARD_HASAN_RECEIVE'
   | 'INVESTMENT_CASH'
+  | 'RECEIVE_INVESTMENT_INCOME'
   | 'SELL_MURABAHA'
   | 'COLLECT_MURABAHA_RECEIVABLE';
-
 
 export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
 

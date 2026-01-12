@@ -21,8 +21,10 @@ const actionContractMap: Record<UserAction, ContractType> = {
   QARD_HASAN_GIVE: 'QARD',
   QARD_HASAN_RECEIVE: 'QARD',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
+  RECEIVE_INVESTMENT_INCOME: 'MUDARABAH_OR_MUSHARAKAH',
   SELL_MURABAHA: 'MURABAHA',
   COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
+  SET_MEMBER_DEPOSITS: 'CAPITAL',
 };
 
 export function mapActionToEntry(action: UserAction): AutoEntry {
@@ -49,6 +51,13 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'MEMBER_DEPOSIT':
       return {
         debitAccountId: 'cash',
+        creditAccountId: 'deposits_liability',
+        contractType,
+      };
+    
+    case 'SET_MEMBER_DEPOSITS':
+      return {
+        debitAccountId: 'share_capital', // Or another equity account like 'Opening Balance Equity'
         creditAccountId: 'deposits_liability',
         contractType,
       };
@@ -92,6 +101,13 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
         return {
             debitAccountId: 'investments',
             creditAccountId: 'cash',
+            contractType
+        };
+    
+    case 'RECEIVE_INVESTMENT_INCOME':
+        return {
+            debitAccountId: 'cash',
+            creditAccountId: 'investment_income',
             contractType
         };
     

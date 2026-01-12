@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2 } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -56,12 +56,14 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'RECEIVE_CASH', label: 'ຮັບເງິນສົດ (Receive Cash)' },
     { value: 'PAY_CASH', label: 'ຈ່າຍເງິນສົດ (Pay Cash)' },
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
+    { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
     { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
+    { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
     { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
 ];
@@ -205,9 +207,18 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                     {accounts.filter(a => a.type === 'asset').map(acc => (
-                         <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+                     {accounts.filter(a => a.type === 'asset' || (a.type === 'equity' && a.id === 'share_capital')).map(acc => (
+                         <SummaryCard 
+                            key={acc.id} 
+                            title={acc.name} 
+                            balances={accountBalances[acc.id] || { ...initialCurrencyValues }} 
+                            icon={
+                                acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
+                                acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                            }
+                         />
                      ))}
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
