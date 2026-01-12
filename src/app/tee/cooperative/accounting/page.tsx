@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2 } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -56,12 +56,15 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'RECEIVE_CASH', label: 'ຮັບເງິນສົດ (Receive Cash)' },
     { value: 'PAY_CASH', label: 'ຈ່າຍເງິນສົດ (Pay Cash)' },
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
+    { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
     { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
+    { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
+    { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
 ];
 
 
@@ -83,6 +86,7 @@ export default function CooperativeAccountingPage() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [profitAmount, setProfitAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
     const [selectedAction, setSelectedAction] = useState<UserAction | undefined>();
 
     // Filter state
@@ -101,8 +105,8 @@ export default function CooperativeAccountingPage() {
         setAccountBalances(balances);
     }, [transactions]);
 
-    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
-        setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
+        stateSetter(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
     const journalEntries = useMemo(() => {
@@ -149,7 +153,7 @@ export default function CooperativeAccountingPage() {
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0) + (amount.cny || 0);
+        const totalAmount = Object.values(amount).reduce((sum, val) => sum + val, 0);
 
         if (!date || !description || !selectedAction) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາເລືອກເຫດການ, ວັນທີ ແລະ ໃສ່ຄຳອະທິບາຍ", variant: "destructive" });
@@ -164,6 +168,7 @@ export default function CooperativeAccountingPage() {
             await recordUserAction({
                 action: selectedAction,
                 amount,
+                profit: selectedAction === 'SELL_MURABAHA' ? profitAmount : undefined,
                 description,
                 date
             });
@@ -173,6 +178,7 @@ export default function CooperativeAccountingPage() {
             setDescription('');
             setSelectedAction(undefined);
             setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setProfitAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
         } catch (error) {
             console.error("Error adding transaction:", error);
@@ -200,9 +206,14 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                     {accounts.filter(a => a.type === 'asset').map(acc => (
-                         <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                     {accounts.filter(a => a.type === 'asset' || (a.type === 'equity' && a.id === 'share_capital')).map(acc => (
+                         <SummaryCard 
+                            key={acc.id} 
+                            title={acc.name} 
+                            balances={accountBalances[acc.id] || { ...initialCurrencyValues }} 
+                            icon={acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> : <Users className="h-4 w-4 text-muted-foreground" />}
+                         />
                      ))}
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
@@ -237,12 +248,28 @@ export default function CooperativeAccountingPage() {
                                     <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} required placeholder="ເຊັ່ນ: ຮັບເງິນຄ່າຫຸ້ນຈາກ ທ້າວ ກ."/>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange('kip', e.target.value)} /></div>
-                                    <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange('thb', e.target.value)} /></div>
-                                    <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange('usd', e.target.value)} /></div>
-                                    <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange('cny', e.target.value)} /></div>
+                                <div className="grid gap-2">
+                                  <Label className="text-sm font-medium">{selectedAction === 'SELL_MURABAHA' ? 'ເງິນຕົ້ນ (Principal)' : 'ຈຳນວນເງິນ (Amount)'}</Label>
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange(setAmount, 'kip', e.target.value)} /></div>
+                                      <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange(setAmount, 'thb', e.target.value)} /></div>
+                                      <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange(setAmount, 'usd', e.target.value)} /></div>
+                                      <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange(setAmount, 'cny', e.target.value)} /></div>
+                                  </div>
                                 </div>
+                                
+                                {selectedAction === 'SELL_MURABAHA' && (
+                                   <div className="grid gap-2">
+                                      <Label className="text-sm font-medium">ກຳໄລ (Profit)</Label>
+                                      <div className="grid grid-cols-2 gap-2">
+                                          <div><Label className="text-xs">KIP</Label><Input type="number" value={profitAmount.kip || ''} onChange={e => handleAmountChange(setProfitAmount, 'kip', e.target.value)} /></div>
+                                          <div><Label className="text-xs">THB</Label><Input type="number" value={profitAmount.thb || ''} onChange={e => handleAmountChange(setProfitAmount, 'thb', e.target.value)} /></div>
+                                          <div><Label className="text-xs">USD</Label><Input type="number" value={profitAmount.usd || ''} onChange={e => handleAmountChange(setProfitAmount, 'usd', e.target.value)} /></div>
+                                          <div><Label className="text-xs">CNY</Label><Input type="number" value={profitAmount.cny || ''} onChange={e => handleAmountChange(setProfitAmount, 'cny', e.target.value)} /></div>
+                                      </div>
+                                    </div>
+                                )}
+
 
                                 <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
                             </form>

@@ -5,6 +5,7 @@ type AutoEntry = {
   debitAccountId: string;
   creditAccountId: string;
   contractType: ContractType;
+  secondaryEntries?: { debitAccountId: string; creditAccountId: string; amountField: 'profit' | 'principal' }[];
 };
 
 const actionContractMap: Record<UserAction, ContractType> = {
@@ -19,7 +20,10 @@ const actionContractMap: Record<UserAction, ContractType> = {
   BUY_CREDIT: 'SALE',
   QARD_HASAN_GIVE: 'QARD',
   QARD_HASAN_RECEIVE: 'QARD',
-  INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH'
+  INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
+  SELL_MURABAHA: 'MURABAHA',
+  COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
+  SET_MEMBER_DEPOSITS: 'CAPITAL',
 };
 
 export function mapActionToEntry(action: UserAction): AutoEntry {
@@ -32,7 +36,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'RECEIVE_CASH':
       return {
         debitAccountId: 'cash',
-        creditAccountId: 'income_general', // Or a more specific income account
+        creditAccountId: 'income_general',
         contractType,
       };
 
@@ -46,6 +50,13 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'MEMBER_DEPOSIT':
       return {
         debitAccountId: 'cash',
+        creditAccountId: 'deposits_liability',
+        contractType,
+      };
+    
+    case 'SET_MEMBER_DEPOSITS':
+      return {
+        debitAccountId: 'share_capital', // Or another equity account like 'Opening Balance Equity'
         creditAccountId: 'deposits_liability',
         contractType,
       };
@@ -73,7 +84,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       
     case 'QARD_HASAN_GIVE':
       return {
-        debitAccountId: 'loan_receivable',
+        debitAccountId: 'qard_receivable',
         creditAccountId: 'cash',
         contractType,
       };
@@ -81,7 +92,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'QARD_HASAN_RECEIVE':
         return {
             debitAccountId: 'cash',
-            creditAccountId: 'loan_receivable',
+            creditAccountId: 'qard_receivable',
             contractType
         };
 
@@ -91,10 +102,35 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
             creditAccountId: 'cash',
             contractType
         };
-        
-    // Add other cases here
-    // e.g., 'BUY_CASH', 'SELL_MURABAHA', etc.
+    
+    case 'SELL_MURABAHA':
+        return {
+            debitAccountId: 'murabaha_receivable', // Total repayment amount
+            creditAccountId: 'cash', // Principal amount
+            secondaryEntries: [
+                {
+                    debitAccountId: 'murabaha_receivable', // This seems counter-intuitive but it's part of the compound entry
+                    creditAccountId: 'deferred_murabaha_income',
+                    amountField: 'profit'
+                }
+            ],
+            contractType
+        };
 
+    case 'COLLECT_MURABAHA_RECEIVABLE':
+        return {
+            debitAccountId: 'cash',
+            creditAccountId: 'murabaha_receivable',
+            secondaryEntries: [
+                 {
+                    debitAccountId: 'deferred_murabaha_income',
+                    creditAccountId: 'sales_income', // Realize income
+                    amountField: 'profit' // We need to calculate how much profit is in this payment
+                }
+            ],
+            contractType
+        };
+        
     default:
       throw new Error(`Unsupported action: ${action}`);
   }
