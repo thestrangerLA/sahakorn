@@ -53,8 +53,6 @@ const SummaryCard = ({ title, balances, icon, className }: { title: string, bala
 );
 
 const userActions: { value: UserAction; label: string }[] = [
-    { value: 'RECEIVE_CASH', label: 'ຮັບເງິນສົດ (Receive Cash)' },
-    { value: 'PAY_CASH', label: 'ຈ່າຍເງິນສົດ (Pay Cash)' },
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
@@ -66,6 +64,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
     { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
+    { value: 'PAY_GENERAL_EXPENSE', label: 'ຈ່າຍຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (Pay General Expense)' },
 ];
 
 
@@ -208,7 +207,7 @@ export default function CooperativeAccountingPage() {
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-                     {accounts.filter(a => a.type === 'asset' || (a.type === 'equity' && a.id === 'share_capital')).map(acc => (
+                     {accounts.filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity'))).map(acc => (
                          <SummaryCard 
                             key={acc.id} 
                             title={acc.name} 
