@@ -97,9 +97,9 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
     };
     const docRef = await addDoc(loansCollectionRef, newLoan);
-    
-    const receivableAccount = loanData.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
 
+    // Create accounting transaction for loan disbursement
+    const receivableAccount = loanData.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
     await createTransaction(
         receivableAccount,
         'cash',
@@ -175,10 +175,11 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 };
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: CurrencyValues; date: Date, note?: string}[]) => {
-  const batch = writeBatch(db);
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
+  const batch = writeBatch(db);
+  
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
     const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
@@ -190,18 +191,22 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
         note: r.note || '',
         createdAt: serverTimestamp(),
     });
-
-    const receivableAccount = loanDoc.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
-    
-     await createTransaction(
-        'cash',
-        receivableAccount,
-        amountPaid,
-        `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
-        r.date
-      );
   }
   await batch.commit();
+
+  // Now create accounting entries sequentially after the batch commit
+  for (const r of repayments) {
+      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
+      const receivableAccount = loanDoc.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
+      
+      await createTransaction(
+          'cash',
+          receivableAccount,
+          amountPaid,
+          `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
+          r.date
+      );
+  }
 };
 
 
