@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { 
@@ -98,15 +97,16 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
     };
     const docRef = await addDoc(loansCollectionRef, newLoan);
+    
+    const receivableAccount = loanData.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
 
-    // Create accounting transaction for loan disbursement
-    // await createTransaction(
-    //     'loan_receivable',
-    //     'cash',
-    //     newLoan.amount,
-    //     `Disburse Loan #${newLoan.loanCode}`,
-    //     newLoan.applicationDate.toDate()
-    // );
+    await createTransaction(
+        receivableAccount,
+        'cash',
+        newLoan.amount,
+        `Disburse Loan #${newLoan.loanCode}`,
+        newLoan.applicationDate.toDate()
+    );
 
     return docRef.id;
 };
@@ -191,14 +191,15 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
         createdAt: serverTimestamp(),
     });
 
-     // Accounting transaction for repayment
-    //  await createTransaction(
-    //     'cash',
-    //     'loan_receivable',
-    //     amountPaid,
-    //     `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
-    //     r.date
-    //   );
+    const receivableAccount = loanDoc.loanType === 'MURABAHA' ? 'murabaha_receivable' : 'qard_hasan_receivable';
+    
+     await createTransaction(
+        'cash',
+        receivableAccount,
+        amountPaid,
+        `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
+        r.date
+      );
   }
   await batch.commit();
 };
