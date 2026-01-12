@@ -54,6 +54,7 @@ export interface AccountSummary {
     transfer: any;
     capital: any;
     workingCapital?: number;
+    bankAccount?: any;
 }
 
 export interface TransportEntry {
@@ -223,6 +224,7 @@ export interface DocumentAccountSummary {
     capital: CurrencyValues;
     cash: CurrencyValues;
     transfer: CurrencyValues;
+    bankAccount?: CurrencyValues;
 }
 
 export interface ApplianceCustomer {
@@ -260,6 +262,14 @@ export interface CooperativeDeposit {
   kip: number;
   thb: number;
   usd: number;
+  createdAt: Date;
+}
+
+export interface CooperativeInvestment {
+  id: string;
+  date: Date;
+  description: string;
+  amount: CurrencyValues;
   createdAt: Date;
 }
 
