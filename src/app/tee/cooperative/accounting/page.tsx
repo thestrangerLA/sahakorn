@@ -64,6 +64,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
     { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
+    { value: 'PAY_GENERAL_EXPENSE', label: 'ຈ່າຍຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (Pay General Expense)' },
 ];
 
 

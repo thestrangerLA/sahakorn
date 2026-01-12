@@ -20,19 +20,17 @@ type AutoEntry = {
 
 const actionContractMap: Record<UserAction, ContractType> = {
   MEMBER_DEPOSIT: 'QARD',
+  SET_MEMBER_DEPOSITS: 'CAPITAL',
   MEMBER_WITHDRAW: 'QARD',
-  SELL_CASH: 'SALE',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
-  BUY_CASH: 'SALE',
-  BUY_CREDIT: 'SALE',
   QARD_HASAN_GIVE: 'QARD',
   QARD_HASAN_RECEIVE: 'QARD',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
   RECEIVE_INVESTMENT_INCOME: 'MUDARABAH_OR_MUSHARAKAH',
   SELL_MURABAHA: 'MURABAHA',
   COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
-  SET_MEMBER_DEPOSITS: 'CAPITAL',
+  PAY_GENERAL_EXPENSE: 'SALE',
 };
 
 /**
@@ -238,6 +236,23 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
           requiresApproval: false,
           requiresContract: false,
           notes: 'Investment income received. Only from actual profit share, not guaranteed return.'
+        }
+      };
+      
+    // ═══════════════════════════════════════════════════════════
+    // GENERAL EXPENSES
+    // ═══════════════════════════════════════════════════════════
+    
+    case 'PAY_GENERAL_EXPENSE':
+      return {
+        debitAccountId: 'expense_general',
+        creditAccountId: 'cash',
+        contractType: 'SALE', // Expenses are part of general operational 'sales' cycle
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: false,
+          requiresContract: false,
+          notes: 'General operational expense.'
         }
       };
 
