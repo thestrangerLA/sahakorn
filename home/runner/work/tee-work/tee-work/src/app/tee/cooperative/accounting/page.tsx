@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -203,7 +203,18 @@ export default function CooperativeAccountingPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
-                <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
+                 <div className="flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                    <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
+                </div>
+                 <div className="ml-auto">
+                    <Button asChild variant="outline">
+                        <Link href="/tee/cooperative/income-expense">
+                             <BookOpen className="mr-2 h-4 w-4"/>
+                            ໄປທີ່ໜ້າລາຍຮັບ-ລາຍຈ່າຍ
+                        </Link>
+                    </Button>
+                </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
