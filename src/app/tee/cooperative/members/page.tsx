@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown, Search, MinusCircle } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown, Search, MinusCircle, TrendingUp } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit, Loan, LoanRepayment, CooperativeInvestment, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
@@ -116,7 +116,6 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
         </Dialog>
     );
 };
-
 
 export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
@@ -356,7 +355,7 @@ export default function CooperativeMembersPage() {
                      <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">ເງິນທັງໝົດຂອງສະຫະກອນ</CardTitle>
-                            <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-x-4">
                             {Object.entries(totalCooperativeMoney).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
@@ -480,5 +479,5 @@ export default function CooperativeMembersPage() {
             )}
         </div>
     );
-
+}
     
