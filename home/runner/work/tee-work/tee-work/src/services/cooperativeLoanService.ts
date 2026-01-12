@@ -99,10 +99,13 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
     const docRef = await addDoc(loansCollectionRef, newLoan);
 
     const actionType = loanData.loanType === 'MURABAHA' ? 'SELL_MURABAHA' : 'QARD_HASAN_GIVE';
+    
+    // For MURABAHA, profit is the difference between repaymentAmount and amount.
+    // For QARD_HASAN, profit is zero.
     const profit = currencies.reduce((acc, c) => {
         acc[c] = (loanData.repaymentAmount[c] || 0) - (loanData.amount[c] || 0);
         return acc;
-    }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+    }, { kip: 0, thb: 0, usd: 0, cny: 0 } as CurrencyValues);
 
     await recordUserAction({
       action: actionType,
@@ -206,7 +209,9 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
       await recordUserAction({
           action: actionType,
           amount: amountPaid,
-          // Profit calculation for Murabaha is now handled by recordUserAction if needed
+          // Profit is only recognized at repayment for murabaha, needs to be calculated based on repayment schedule which isn't implemented here yet.
+          // For now, we will assume the profit is part of the repayment and will be handled by the accounting logic.
+          // In a real system, you would calculate the profit portion of THIS specific payment.
           description: `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
           date: r.date
       });
