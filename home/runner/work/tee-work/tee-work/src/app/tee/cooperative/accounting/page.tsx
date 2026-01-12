@@ -6,24 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Combine, MinusCircle, Pencil, Banknote } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2 } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Textarea } from "@/components/ui/textarea"
-import { format, startOfDay } from "date-fns"
+import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog } from "@/components/ui/dialog"
-import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary, updateCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
+import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction } from '@/services/cooperativeAccountingService';
+import type { Account, Transaction, CurrencyValues, UserAction } from '@/lib/types';
 import { DateRange } from "react-day-picker";
-import { v4 as uuidv4 } from 'uuid';
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -33,12 +30,11 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances, icon, onClick, className }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, onClick?: () => void, className?: string }) => (
-    <Card className={`${onClick ? 'cursor-pointer hover:bg-muted/80' : ''} ${className || ''}`} onClick={onClick}>
+const SummaryCard = ({ title, balances, icon, className }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string }) => (
+    <Card className={`${className || ''}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex items-center gap-2">
                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-               {onClick && <Pencil className="h-3 w-3 text-muted-foreground" />}
             </div>
             {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
         </CardHeader>
@@ -56,6 +52,21 @@ const SummaryCard = ({ title, balances, icon, onClick, className }: { title: str
     </Card>
 );
 
+const userActions: { value: UserAction; label: string }[] = [
+    { value: 'RECEIVE_CASH', label: 'ຮັບເງິນສົດ (Receive Cash)' },
+    { value: 'PAY_CASH', label: 'ຈ່າຍເງິນສົດ (Pay Cash)' },
+    { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
+    { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
+    { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
+    { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
+    { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
+    { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
+    { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
+    { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
+    { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
+];
+
+
 type JournalEntry = {
     transactionGroupId: string;
     date: Date;
@@ -69,16 +80,13 @@ export default function CooperativeAccountingPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
-    const [summary, setSummary] = useState<AccountSummary | null>(null);
-    const [editingField, setEditingField] = useState<'capital' | 'cash' | 'transfer' | 'bankAccount' | null>(null);
-    const [editingValues, setEditingValues] = useState<CurrencyValues | null>(null);
-
+    
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
-    const [debitAccountId, setDebitAccountId] = useState<string | undefined>(undefined);
-    const [creditAccountId, setCreditAccountId] = useState<string | undefined>(undefined);
     const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [profitAmount, setProfitAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [selectedAction, setSelectedAction] = useState<UserAction | undefined>();
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -88,47 +96,16 @@ export default function CooperativeAccountingPage() {
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
-        return () => {
-            unsubscribe();
-            unsubscribeSummary();
-        };
+        return () => unsubscribe();
     }, []);
 
     useEffect(() => {
         const balances = getAccountBalances(transactions);
         setAccountBalances(balances);
     }, [transactions]);
-    
-    const reconciliationData = useMemo(() => {
-        if (!summary) return null;
-        
-        const actualTotal = currencies.reduce((acc, c) => ({
-            ...acc, 
-            [c]: (summary.cash[c] || 0) + (summary.transfer[c] || 0) + (summary.bankAccount?.[c] || 0) 
-        }), {...initialCurrencyValues});
 
-        const calculatedCash = accountBalances['cash'] || initialCurrencyValues;
-        const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; 
-        const calculatedTotal = currencies.reduce((acc, c) => ({...acc, [c]: (calculatedCash[c] || 0) + (calculatedTransfer[c] || 0) }), {...initialCurrencyValues});
-
-        const difference = currencies.reduce((acc, c) => ({...acc, [c]: actualTotal[c] - calculatedTotal[c] }), {...initialCurrencyValues});
-
-        return { actualTotal, calculatedTotal, difference };
-
-    }, [summary, accountBalances]);
-
-    const totalMoney = useMemo(() => {
-        if (!summary) return { ...initialCurrencyValues };
-        return currencies.reduce((acc, c) => ({
-            ...acc,
-            [c]: (summary.cash[c] || 0) + (summary.transfer[c] || 0) + (summary.bankAccount?.[c] || 0)
-        }), { ...initialCurrencyValues });
-    }, [summary]);
-
-
-    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
-        setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
+        stateSetter(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
     const journalEntries = useMemo(() => {
@@ -175,34 +152,37 @@ export default function CooperativeAccountingPage() {
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0) + (amount.cny || 0);
+        const totalAmount = Object.values(amount).reduce((sum, val) => sum + val, 0);
 
-        if (!date || !description || !debitAccountId || !creditAccountId) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
+        if (!date || !description || !selectedAction) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາເລືອກເຫດການ, ວັນທີ ແລະ ໃສ່ຄຳອະທິບາຍ", variant: "destructive" });
             return;
         }
          if (totalAmount === 0) {
             toast({ title: "ຈຳນວນເງິນຜິດພາດ", description: "ຈຳນວນເງິນຕ້ອງບໍ່ແມ່ນສູນ", variant: "destructive" });
             return;
         }
-        if (debitAccountId === creditAccountId) {
-            toast({ title: "ບັນຊີຜິດພາດ", description: "Debit ແລະ Credit ຕ້ອງເປັນຄົນລະບັນຊີ", variant: "destructive" });
-            return;
-        }
 
         try {
-            await createTransaction(debitAccountId, creditAccountId, amount, description, date);
+            await recordUserAction({
+                action: selectedAction,
+                amount,
+                profit: selectedAction === 'SELL_MURABAHA' ? profitAmount : undefined,
+                description,
+                date
+            });
             toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
             // Reset form
             setDate(new Date());
             setDescription('');
-            setDebitAccountId(undefined);
-            setCreditAccountId(undefined);
+            setSelectedAction(undefined);
             setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setProfitAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
         } catch (error) {
             console.error("Error adding transaction:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: errorMessage, variant: "destructive" });
         }
     }
     
@@ -216,36 +196,6 @@ export default function CooperativeAccountingPage() {
         }
     }
 
-     const openEditDialog = (field: 'capital' | 'cash' | 'transfer' | 'bankAccount') => {
-        if (!summary) return;
-        setEditingField(field);
-        setEditingValues(summary[field] || { ...initialCurrencyValues });
-    };
-
-    const handleSaveSummary = async () => {
-        if (!editingField || !editingValues) return;
-        try {
-            await updateCooperativeAccountSummary({ [editingField]: editingValues });
-            toast({ title: "ບັນທຶກຍອດເງິນສຳເລັດ" });
-            setEditingField(null);
-            setEditingValues(null);
-        } catch (error) {
-             console.error("Error saving summary: ", error);
-             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-    
-    const getDialogTitle = () => {
-        switch(editingField) {
-            case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
-            case 'cash': return 'ແກ້ໄຂເງິນສົດ';
-            case 'transfer': return 'ແກ້ໄຂເງິນໂอน';
-            case 'bankAccount': return 'ແກ້ໄຂເງິນໃນບັນຊີ';
-            default: return 'ແກ້ໄຂ';
-        }
-    };
-
-
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -255,41 +205,26 @@ export default function CooperativeAccountingPage() {
                 <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                      {accounts.filter(a => a.type === 'asset').map(acc => (
                          <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0, cny: 0 }} />
                      ))}
-                     <SummaryCard title="ເງິນໃນບັນຊີ" values={summary?.bankAccount || initialCurrencyValues} icon={<Banknote className="h-4 w-4" />} onClick={() => openEditDialog('bankAccount')} />
-                     <SummaryCard title="ລວມເງິນຄົງເຫຼືອ" values={totalMoney} icon={<Combine className="h-4 w-4 text-green-600" />} />
-                     {reconciliationData && (
-                        <Card className="border-blue-500 border-2">
-                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-blue-600">ປຽບທຽບຍອດເງິນ</CardTitle>
-                            </CardHeader>
-                             <CardContent className="text-xs">
-                                {currencies.map(c => {
-                                    if(reconciliationData.difference[c] === 0) return null;
-                                    return (
-                                        <div key={c}>
-                                            <span className="font-semibold uppercase">{c}: </span>
-                                            <span className={reconciliationData.difference[c] > 0 ? 'text-green-600' : 'text-red-600'}>
-                                                {reconciliationData.difference[c] > 0 ? '+' : ''}{formatCurrency(reconciliationData.difference[c])}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                                 {Object.values(reconciliationData.difference).every(v => v === 0) && <p className="text-muted-foreground">ຍອດເງິນກົງກັນ</p>}
-                            </CardContent>
-                        </Card>
-                     )}
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
                         <CardHeader>
                             <CardTitle>ບັນທຶກລາຍການ (Journal Entry)</CardTitle>
+                            <CardDescription>ເລືອກເຫດການທີ່ເກີດຂຶ້ນຈິງ, ລະບົບຈະລົງບັນຊີໃຫ້ອັດຕະໂນມັດ</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleAddTransaction} className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label>ເຫດການ (Action)</Label>
+                                    <Select value={selectedAction} onValueChange={(v) => setSelectedAction(v as UserAction)}>
+                                        <SelectTrigger><SelectValue placeholder="ເລືອກເຫດການທີ່ເກີດຂຶ້ນ..." /></SelectTrigger>
+                                        <SelectContent>{userActions.map(action => <SelectItem key={action.value} value={action.value}>{action.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="date">ວັນທີ</Label>
                                     <Popover>
@@ -304,31 +239,31 @@ export default function CooperativeAccountingPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="description">ຄຳອະທິບາຍ</Label>
-                                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} required />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label>Debit (ເດບິດ)</Label>
-                                        <Select value={debitAccountId} onValueChange={setDebitAccountId}>
-                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
-                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    </div>
-                                     <div className="grid gap-2">
-                                        <Label>Credit (ເຄຣດິດ)</Label>
-                                        <Select value={creditAccountId} onValueChange={setCreditAccountId}>
-                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
-                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    </div>
+                                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} required placeholder="ເຊັ່ນ: ຮັບເງິນຄ່າຫຸ້ນຈາກ ທ້າວ ກ."/>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange('kip', e.target.value)} /></div>
-                                    <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange('thb', e.target.value)} /></div>
-                                    <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange('usd', e.target.value)} /></div>
-                                    <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange('cny', e.target.value)} /></div>
+                                <div className="grid gap-2">
+                                  <Label className="text-sm font-medium">{selectedAction === 'SELL_MURABAHA' ? 'ເງິນຕົ້ນ (Principal)' : 'ຈຳນວນເງິນ (Amount)'}</Label>
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange(setAmount, 'kip', e.target.value)} /></div>
+                                      <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange(setAmount, 'thb', e.target.value)} /></div>
+                                      <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange(setAmount, 'usd', e.target.value)} /></div>
+                                      <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange(setAmount, 'cny', e.target.value)} /></div>
+                                  </div>
                                 </div>
+                                
+                                {selectedAction === 'SELL_MURABAHA' && (
+                                   <div className="grid gap-2">
+                                      <Label className="text-sm font-medium">ກຳໄລ (Profit)</Label>
+                                      <div className="grid grid-cols-2 gap-2">
+                                          <div><Label className="text-xs">KIP</Label><Input type="number" value={profitAmount.kip || ''} onChange={e => handleAmountChange(setProfitAmount, 'kip', e.target.value)} /></div>
+                                          <div><Label className="text-xs">THB</Label><Input type="number" value={profitAmount.thb || ''} onChange={e => handleAmountChange(setProfitAmount, 'thb', e.target.value)} /></div>
+                                          <div><Label className="text-xs">USD</Label><Input type="number" value={profitAmount.usd || ''} onChange={e => handleAmountChange(setProfitAmount, 'usd', e.target.value)} /></div>
+                                          <div><Label className="text-xs">CNY</Label><Input type="number" value={profitAmount.cny || ''} onChange={e => handleAmountChange(setProfitAmount, 'cny', e.target.value)} /></div>
+                                      </div>
+                                    </div>
+                                )}
+
 
                                 <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
                             </form>
@@ -424,32 +359,6 @@ export default function CooperativeAccountingPage() {
                         </CardContent>
                     </Card>
                 </div>
-                 {editingField && editingValues && (
-                    <Dialog open={!!editingField} onOpenChange={(isOpen) => !isOpen && setEditingField(null)}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>{getDialogTitle()}</DialogTitle>
-                            </DialogHeader>
-                            <div className="grid grid-cols-2 gap-4 py-4">
-                                {currencies.map(c => (
-                                    <div key={c} className="grid gap-2">
-                                        <Label htmlFor={`summary-edit-${c}`} className="uppercase">{c}</Label>
-                                        <Input
-                                            id={`summary-edit-${c}`}
-                                            type="number"
-                                            value={editingValues[c] || ''}
-                                            onChange={(e) => setEditingValues(prev => prev ? { ...prev, [c]: Number(e.target.value) } : null)}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setEditingField(null)}>ຍົກເລີກ</Button>
-                                <Button onClick={handleSaveSummary}>ບັນທຶກ</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )}
             </main>
         </div>
     );

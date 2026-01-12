@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -32,6 +31,25 @@ export interface Account {
   type: AccountType
 }
 
+export type UserAction =
+  | 'RECEIVE_CASH'
+  | 'PAY_CASH'
+  | 'MEMBER_DEPOSIT'
+  | 'MEMBER_WITHDRAW'
+  | 'SELL_CASH'
+  | 'SELL_CREDIT'
+  | 'COLLECT_RECEIVABLE'
+  | 'BUY_CASH'
+  | 'BUY_CREDIT'
+  | 'QARD_HASAN_GIVE'
+  | 'QARD_HASAN_RECEIVE'
+  | 'INVESTMENT_CASH'
+  | 'SELL_MURABAHA'
+  | 'COLLECT_MURABAHA_RECEIVABLE';
+
+
+export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
+
 export interface Transaction {
   id: string;
   transactionGroupId: string;
@@ -45,6 +63,10 @@ export interface Transaction {
   businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
   saleId?: string;
   profit?: number;
+  userAction?: UserAction;
+  contractType?: ContractType;
+  systemGenerated?: boolean;
+  [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
 }
 
 
