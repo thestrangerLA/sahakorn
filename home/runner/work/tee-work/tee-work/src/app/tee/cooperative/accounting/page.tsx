@@ -1,5 +1,5 @@
 
-"use client"
+"use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -384,3 +384,4 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+    
