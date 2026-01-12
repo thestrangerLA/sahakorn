@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, TrendingUp, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2 } from "lucide-react"
+import { ArrowLeft, TrendingUp, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Pencil } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
