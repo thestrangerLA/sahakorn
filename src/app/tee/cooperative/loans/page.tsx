@@ -34,7 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
-    return new Intl.NumberFormat('lo-LA', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+    return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };

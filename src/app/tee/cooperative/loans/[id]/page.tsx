@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,7 +28,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
 
 
 type NewRepayment = {
@@ -164,7 +163,7 @@ export default function LoanDetailPage() {
     };
 
     const handleConfirmRepayments = async () => {
-        const validRepayments = newRepayments.filter(r => Object.values(r.amount).some(val => val > 0));
+        const validRepayments = newRepayments.filter(r => (r.amount.kip || 0) > 0 || (r.amount.thb || 0) > 0 || (r.amount.usd || 0) > 0 || (r.amount.cny || 0) > 0);
         if (validRepayments.length === 0) {
             toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
             return;
