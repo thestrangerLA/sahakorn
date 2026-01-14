@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import type { CooperativeDeposit } from '@/lib/types';
+import type { CooperativeDeposit, CurrencyValues } from '@/lib/types';
 import { 
     collection, 
     addDoc, 
@@ -12,12 +12,11 @@ import {
     serverTimestamp,
     Timestamp,
     runTransaction,
-    increment
+    writeBatch
 } from 'firebase/firestore';
-import { startOfDay } from 'date-fns';
+import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
-const membersCollectionRef = collection(db, 'cooperativeMembers');
 
 export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit[]) => void) => {
     const q = query(depositsCollectionRef, orderBy('date', 'desc'));
@@ -40,22 +39,32 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
     return unsubscribe;
 };
 
-export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt'>) => {
-    
-    await runTransaction(db, async (transaction) => {
-        const depositDocRef = doc(depositsCollectionRef);
-        const depositWithTimestamp = {
-            ...deposit,
-            date: Timestamp.fromDate(deposit.date),
-            createdAt: serverTimestamp()
-        };
-        transaction.set(depositDocRef, depositWithTimestamp);
-
+export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
+    // 1. Create the journal entry and get the transaction group ID
+    const transactionGroupId = await recordUserAction({
+        action: (deposit.kip < 0 || deposit.thb < 0 || deposit.usd < 0) ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT',
+        amount: {
+            kip: Math.abs(deposit.kip),
+            thb: Math.abs(deposit.thb),
+            usd: Math.abs(deposit.usd),
+            cny: 0,
+        },
+        description: `Deposit by ${deposit.memberName}`,
+        date: deposit.date,
     });
+    
+    // 2. Add the deposit document with the transaction group ID
+    const depositWithTimestamp = {
+        ...deposit,
+        transactionGroupId,
+        date: Timestamp.fromDate(deposit.date),
+        createdAt: serverTimestamp()
+    };
+    await addDoc(depositsCollectionRef, depositWithTimestamp);
 };
 
 export const deleteCooperativeDeposit = async (id: string) => {
-     await runTransaction(db, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
         const depositDocRef = doc(depositsCollectionRef, id);
         const depositDoc = await transaction.get(depositDocRef);
 
@@ -65,7 +74,12 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         const depositData = depositDoc.data() as CooperativeDeposit;
 
-        transaction.delete(depositDocRef);
+        // If there's an associated transaction group, delete it
+        if (depositData.transactionGroupId) {
+            await deleteTransactionGroup(depositData.transactionGroupId);
+        }
         
+        // Delete the deposit document itself
+        transaction.delete(depositDocRef);
     });
 };

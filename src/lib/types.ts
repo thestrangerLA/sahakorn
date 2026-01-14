@@ -276,13 +276,14 @@ export interface CooperativeDeposit {
   thb: number;
   usd: number;
   createdAt: Date;
+  transactionGroupId?: string;
 }
 
 export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: Omit<CurrencyValues, 'cny'>;
+  amount: CurrencyValues;
   createdAt: Date;
 }
 
@@ -323,3 +324,4 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
+
