@@ -11,11 +11,9 @@ import {
     orderBy,
     serverTimestamp,
     Timestamp,
-    runTransaction,
-    writeBatch
+    runTransaction
 } from 'firebase/firestore';
-import { startOfDay } from 'date-fns';
-import { recordUserAction } from './cooperativeAccountingService';
+import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
 
@@ -40,44 +38,52 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
     return unsubscribe;
 };
 
-export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt'>) => {
-    
-    await runTransaction(db, async (transaction) => {
-        const depositDocRef = doc(depositsCollectionRef);
-        
-        const depositAmount: CurrencyValues = {
-            kip: deposit.kip || 0,
-            thb: deposit.thb || 0,
-            usd: deposit.usd || 0,
-            cny: 0, // Assuming cny is not part of member deposits for now
-        };
+export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
+    // Determine if it's a deposit or withdrawal
+    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0;
+    const actionType = isWithdrawal ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT';
 
-        const depositWithTimestamp = {
-            ...deposit,
-            date: Timestamp.fromDate(deposit.date),
-            createdAt: serverTimestamp()
-        };
-        transaction.set(depositDocRef, depositWithTimestamp);
-        
-        // This is where we create the journal entry
-        await recordUserAction({
-            action: deposit.kip < 0 || deposit.thb < 0 || deposit.usd < 0 ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT',
-            amount: {
-                kip: Math.abs(deposit.kip),
-                thb: Math.abs(deposit.thb),
-                usd: Math.abs(deposit.usd),
-                cny: 0
-            },
-            description: `Deposit by ${deposit.memberName}`,
-            date: deposit.date
-        });
+    // 1. Create the journal entry first and get the transaction group ID
+    const transactionGroupId = await recordUserAction({
+        action: actionType,
+        amount: {
+            kip: Math.abs(deposit.kip),
+            thb: Math.abs(deposit.thb),
+            usd: Math.abs(deposit.usd),
+            cny: 0,
+        },
+        description: `${isWithdrawal ? 'Withdrawal' : 'Deposit'} by ${deposit.memberName}`,
+        date: deposit.date,
     });
+
+    // 2. Now, add the deposit document with the associated transaction group ID
+    const depositWithTimestamp = {
+        ...deposit,
+        transactionGroupId, // Link to the journal entry
+        date: Timestamp.fromDate(deposit.date),
+        createdAt: serverTimestamp()
+    };
+    await addDoc(depositsCollectionRef, depositWithTimestamp);
 };
+
 
 export const deleteCooperativeDeposit = async (id: string) => {
-    const depositDocRef = doc(depositsCollectionRef, id);
-    await deleteDoc(depositDocRef);
-    // Note: This does not automatically reverse the associated journal entry.
-    // A more robust system would store the transactionGroupId on the deposit and call deleteTransactionGroup here.
-};
+    await runTransaction(db, async (transaction) => {
+        const depositDocRef = doc(depositsCollectionRef, id);
+        const depositDoc = await transaction.get(depositDocRef);
 
+        if (!depositDoc.exists()) {
+            throw new Error("Deposit record not found.");
+        }
+
+        const depositData = depositDoc.data() as CooperativeDeposit;
+
+        // If there's an associated transaction group, delete it
+        if (depositData.transactionGroupId) {
+            await deleteTransactionGroup(depositData.transactionGroupId);
+        }
+        
+        // Delete the deposit document itself
+        transaction.delete(depositDocRef);
+    });
+};
