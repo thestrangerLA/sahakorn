@@ -1,4 +1,5 @@
 
+
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
@@ -63,8 +64,8 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amount: data.amount || { kip: 0, thb: 0, usd: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
         callback(loans);
@@ -83,8 +84,8 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp).toDate(),
                 createdAt: (data.createdAt as Timestamp).toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amount: data.amount || { kip: 0, thb: 0, usd: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         } else {
             callback(null);
@@ -103,8 +104,8 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             ...data,
             applicationDate: (data.applicationDate as Timestamp).toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
-            amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-            repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            amount: data.amount || { kip: 0, thb: 0, usd: 0 },
+            repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
         } as Loan;
     }
     return null;
@@ -122,12 +123,12 @@ export const addLoan = async (
         createdAt: serverTimestamp(),
         applicationDate: applicationTimestamp,
     };
-
+    
     // Firestore doesn't allow 'undefined' fields. Clean them up.
-    if (newLoan.memberId === undefined) {
+    if (newLoan.memberId === null || newLoan.memberId === undefined) {
         delete newLoan.memberId;
     }
-    if (newLoan.debtorName === undefined) {
+    if (newLoan.debtorName === null || newLoan.debtorName === undefined) {
         delete newLoan.debtorName;
     }
 
@@ -190,7 +191,7 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
                 note: data.note || '',
             } as LoanRepayment);
         });
@@ -210,7 +211,9 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
+                principalPortion: data.principalPortion || { kip: 0, thb: 0, usd: 0 },
+                profitPortion: data.profitPortion || { kip: 0, thb: 0, usd: 0 },
                 note: data.note || '',
             } as LoanRepayment);
         });
@@ -264,6 +267,8 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         description: `Repayment for Loan #${loan.loanCode}`,
         date: paymentDate
     });
+
+    return { principalPortion, profitPortion };
 };
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string}[]) => {
@@ -274,26 +279,25 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
   
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
+    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0 };
     
+     const { principalPortion, profitPortion } = await recordLoanPayment({
+          loan: loanDoc,
+          amount: { ...amountPaid, cny: 0 },
+          paymentDate: r.date
+      });
+
     batch.set(newRepaymentRef, {
         loanId,
         repaymentDate: Timestamp.fromDate(r.date),
-        amountPaid: amountPaid,
+        amountPaid: { ...amountPaid, cny: 0 },
+        principalPortion,
+        profitPortion,
         note: r.note || '',
         createdAt: serverTimestamp(),
     });
   }
   await batch.commit();
-
-  for (const r of repayments) {
-      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
-      await recordLoanPayment({
-          loan: loanDoc,
-          amount: amountPaid,
-          paymentDate: r.date
-      });
-  }
 };
 
 

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,14 +29,14 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 
 type NewRepayment = {
     id: string;
     date: Date;
     note?: string;
-    amount: CurrencyValues;
+    amount: Omit<CurrencyValues, 'cny'>;
 };
 
 export default function LoanDetailPage() {
@@ -79,8 +80,8 @@ export default function LoanDetailPage() {
     }, [id, member]);
 
      const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
-        const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-        let outstanding: CurrencyValues = loan?.repaymentAmount ? { ...loan.repaymentAmount } : { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const paid: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+        let outstanding: Omit<CurrencyValues, 'cny'> = loan?.repaymentAmount ? { ...loan.repaymentAmount } : { kip: 0, thb: 0, usd: 0 };
 
         const schedule: any[] = [];
         
@@ -90,18 +91,13 @@ export default function LoanDetailPage() {
             const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
 
             sortedRepayments.forEach((r, index) => {
-                const principalPortion: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-                 
                  currencies.forEach(c => {
                     paid[c] += r.amountPaid?.[c] || 0;
                     runningBalance[c] -= (r.amountPaid?.[c] || 0);
-
-                    principalPortion[c] = r.amountPaid?.[c] || 0;
                 });
                 
                 schedule.push({
                     ...r,
-                    principalPortion,
                     outstandingBalance: { ...runningBalance }
                 });
             });
@@ -112,7 +108,7 @@ export default function LoanDetailPage() {
         return { 
             totalPaid: paid, 
             outstandingBalance: outstanding, 
-            totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0 },
             repaymentSchedule: schedule.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime())
         };
     }, [repayments, loan]);
@@ -137,7 +133,7 @@ export default function LoanDetailPage() {
         }
     };
     
-    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: keyof CurrencyValues, value: number) => {
+    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: keyof Omit<CurrencyValues, 'cny'>, value: number) => {
         const repayment = repayments.find(r => r.id === repaymentId);
         if (!repayment) return;
 
@@ -179,14 +175,14 @@ export default function LoanDetailPage() {
     };
 
     const handleAddNewRepaymentRow = () => {
-        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0, cny: 0 } }]);
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
     };
 
-    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | `amount.${keyof CurrencyValues}`, value: any) => {
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | `amount.${keyof Omit<CurrencyValues, 'cny'>}`, value: any) => {
         setNewRepayments(prev => prev.map(r => {
             if (r.id === id) {
                 if (field.startsWith('amount.')) {
-                    const currency = field.split('.')[1] as keyof CurrencyValues;
+                    const currency = field.split('.')[1] as keyof Omit<CurrencyValues, 'cny'>;
                     return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
                 }
                 return { ...r, [field]: value };
@@ -200,7 +196,7 @@ export default function LoanDetailPage() {
     };
 
     const handleConfirmRepayments = async () => {
-        const validRepayments = newRepayments.filter(r => (r.amount.kip || 0) > 0 || (r.amount.thb || 0) > 0 || (r.amount.usd || 0) > 0 || (r.amount.cny || 0) > 0);
+        const validRepayments = newRepayments.filter(r => (r.amount.kip || 0) > 0 || (r.amount.thb || 0) > 0 || (r.amount.usd || 0) > 0);
         if (validRepayments.length === 0) {
             toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
             return;
@@ -358,9 +354,10 @@ export default function LoanDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>ງວດທີ່ຈ່າຍ</TableHead>
                                         <TableHead>ວັນທີຈ່າຍ</TableHead>
                                         <TableHead>ຍອດຈ່າຍ</TableHead>
+                                        <TableHead>ຕົ້ນທຶນ</TableHead>
+                                        <TableHead>ກຳໄລ</TableHead>
                                         <TableHead>ຍອດຄົງເຫຼືອ</TableHead>
                                         <TableHead className="text-center">ລຶບ</TableHead>
                                     </TableRow>
@@ -369,11 +366,20 @@ export default function LoanDetailPage() {
                                     {repaymentSchedule.length > 0 ? (
                                         repaymentSchedule.map((r) => (
                                             <TableRow key={r.id}>
-                                                <TableCell className="text-center">{r.installment}</TableCell>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
                                                     {currencies.map(c => (
                                                         (r.amountPaid?.[c] > 0) && <div key={c}>{formatCurrency(r.amountPaid[c])} {c.toUpperCase()}</div>
+                                                    ))}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {currencies.map(c => (
+                                                        (r.principalPortion?.[c] > 0) && <div key={c}>{formatCurrency(r.principalPortion[c])} {c.toUpperCase()}</div>
+                                                    ))}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {currencies.map(c => (
+                                                        (r.profitPortion?.[c] > 0) && <div key={c}>{formatCurrency(r.profitPortion[c])} {c.toUpperCase()}</div>
                                                     ))}
                                                 </TableCell>
                                                  <TableCell>
@@ -390,7 +396,7 @@ export default function LoanDetailPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                            <TableCell colSpan={6} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -417,5 +423,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
-    

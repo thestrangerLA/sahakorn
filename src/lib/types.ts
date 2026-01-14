@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -307,6 +308,8 @@ export interface LoanRepayment {
   loanId: string;
   repaymentDate: Date;
   amountPaid: Omit<CurrencyValues, 'cny'>;
+  principalPortion?: Omit<CurrencyValues, 'cny'>;
+  profitPortion?: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }
