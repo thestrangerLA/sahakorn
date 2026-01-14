@@ -87,6 +87,7 @@ type JournalEntry = {
     transactionGroupId: string;
     date: Date;
     description: string;
+    userAction?: UserAction;
     debit: { accountId: string; amount: CurrencyValues };
     credit: { accountId: string; amount: CurrencyValues };
 };
@@ -138,7 +139,7 @@ export default function CooperativeAccountingPage() {
     const totalMemberDeposits = useMemo(() => {
         return members.reduce((total, member) => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
-            const currentTotal = {
+            const currentTotal: CurrencyValues = {
                 kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
                 thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
                 usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
@@ -169,6 +170,7 @@ export default function CooperativeAccountingPage() {
                     transactionGroupId: tx.transactionGroupId,
                     date: tx.date,
                     description: tx.description,
+                    userAction: tx.userAction,
                     debit: { accountId: '', amount: { ...initialCurrencyValues } },
                     credit: { accountId: '', amount: { ...initialCurrencyValues } }
                 };
@@ -416,11 +418,15 @@ export default function CooperativeAccountingPage() {
                                     {journalEntries.map(entry => {
                                         const debitAccount = accounts.find(a => a.id === entry.debit.accountId);
                                         const creditAccount = accounts.find(a => a.id === entry.credit.accountId);
+                                        const actionLabel = userActions.find(a => a.value === entry.userAction)?.label;
                                         return (
                                         <React.Fragment key={entry.transactionGroupId}>
                                             <TableRow>
                                                 <TableCell rowSpan={2} className="align-top py-2">{format(entry.date, "dd/MM/yyyy")}</TableCell>
-                                                <TableCell rowSpan={2} className="align-top py-2 max-w-xs">{entry.description}</TableCell>
+                                                <TableCell rowSpan={2} className="align-top py-2 max-w-xs">
+                                                  <div className="font-medium">{actionLabel || entry.description}</div>
+                                                  {actionLabel && <div className="text-xs text-muted-foreground">{entry.description}</div>}
+                                                </TableCell>
                                                 <TableCell className="py-1">{debitAccount?.name}</TableCell>
                                                 <TableCell className="text-right text-green-600 font-mono py-1">
                                                      {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
