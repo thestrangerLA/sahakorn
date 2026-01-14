@@ -10,10 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Trash2, Calendar as CalendarIcon, PlusCircle } from "lucide-react";
+import { ArrowLeft, Trash2, Calendar as CalendarIcon, PlusCircle, Edit, Save } from "lucide-react";
 import { format, addYears } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
-import { listenToRepaymentsForLoan, listenToLoan, deleteLoanRepayment, updateLoanRepayment, addLoanRepayment } from '@/services/cooperativeLoanService';
+import { listenToRepaymentsForLoan, listenToLoan, deleteLoanRepayment, updateLoanRepayment, addLoanRepayment, updateLoan } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,9 @@ export default function LoanDetailPage() {
     const [repaymentToDelete, setRepaymentToDelete] = useState<LoanRepayment | null>(null);
     const [newRepayments, setNewRepayments] = useState<NewRepayment[]>([]);
 
+    const [isEditingDuration, setIsEditingDuration] = useState(false);
+    const [editedDuration, setEditedDuration] = useState<number>(0);
+
 
     useEffect(() => {
         if (!id) return;
@@ -58,6 +61,7 @@ export default function LoanDetailPage() {
         const unsubscribeLoan = listenToLoan(id, async (loanData) => {
             if (loanData) {
                 setLoan(loanData);
+                setEditedDuration(loanData.durationYears || 0);
                 if (loanData.memberId && (!member || member.id !== loanData.memberId)) {
                     const memberData = await getCooperativeMember(loanData.memberId);
                     setMember(memberData);
@@ -83,7 +87,6 @@ export default function LoanDetailPage() {
         if (loan) {
             let runningBalance = { ...loan.repaymentAmount };
 
-            // Sort repayments by date ascending to calculate running balance correctly
             const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
 
             sortedRepayments.forEach((r, index) => {
@@ -93,9 +96,6 @@ export default function LoanDetailPage() {
                     paid[c] += r.amountPaid?.[c] || 0;
                     runningBalance[c] -= (r.amountPaid?.[c] || 0);
 
-                    // Note: This is a simplified principal calculation. 
-                    // A proper amortization would be more complex.
-                    // Here, we just assume the entire payment goes to principal for simplicity as interest is not explicit.
                     principalPortion[c] = r.amountPaid?.[c] || 0;
                 });
                 
@@ -113,9 +113,20 @@ export default function LoanDetailPage() {
             totalPaid: paid, 
             outstandingBalance: outstanding, 
             totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-            repaymentSchedule: schedule.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime()) // Sort back to descending for display
+            repaymentSchedule: schedule.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime())
         };
     }, [repayments, loan]);
+    
+    const handleSaveDuration = async () => {
+        if (!loan) return;
+        try {
+            await updateLoan(loan.id, { durationYears: editedDuration });
+            toast({ title: 'ອັບເດດໄລຍະເວລາສຳເລັດ' });
+            setIsEditingDuration(false);
+        } catch (error) {
+            toast({ title: 'ເກີດຂໍ້ຜິດພາດ', variant: 'destructive' });
+        }
+    };
 
     const handleRepaymentUpdate = async (repaymentId: string, field: keyof LoanRepayment, value: any) => {
         try {
@@ -269,10 +280,15 @@ export default function LoanDetailPage() {
                     </Card>
                     
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-5 w-5"/> ໄລຍະເວລາ</CardTitle>
+                             {isEditingDuration ? (
+                                <Button size="sm" onClick={handleSaveDuration}><Save className="mr-2 h-4 w-4"/>ບັນທຶກ</Button>
+                            ) : (
+                                <Button size="sm" variant="outline" onClick={() => setIsEditingDuration(true)}><Edit className="mr-2 h-4 w-4"/>ແກ້ໄຂ</Button>
+                            )}
                         </CardHeader>
-                        <CardContent className="text-sm">
+                        <CardContent className="text-sm space-y-2">
                             <div className="flex justify-between">
                                 <span>ວັນທີເລີ່ມສັນຍາ:</span>
                                 <strong>{format(loan.applicationDate, 'dd/MM/yyyy')}</strong>
@@ -281,9 +297,18 @@ export default function LoanDetailPage() {
                                 <span>ວັນຄົບກຳນົດ:</span>
                                 <strong>{dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</strong>
                             </div>
-                             <div className="flex justify-between">
+                             <div className="flex justify-between items-center">
                                 <span>ໄລຍະເວລາ:</span>
-                                <strong>{loan.durationYears || 'N/A'} ປີ</strong>
+                                {isEditingDuration ? (
+                                    <Input 
+                                        type="number" 
+                                        value={editedDuration} 
+                                        onChange={(e) => setEditedDuration(Number(e.target.value))}
+                                        className="w-20 h-8"
+                                    />
+                                ) : (
+                                    <strong>{loan.durationYears || 'N/A'} ປີ</strong>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -333,11 +358,11 @@ export default function LoanDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>ວັນທີຊຳລະ</TableHead>
+                                        <TableHead>ງວດທີ່ຈ່າຍ</TableHead>
+                                        <TableHead>ວັນທີຈ່າຍ</TableHead>
                                         <TableHead>ເງິນຕົ້ນ</TableHead>
-                                        <TableHead>ຍອດຊຳລະ</TableHead>
+                                        <TableHead>ຍອດຈ່າຍ</TableHead>
                                         <TableHead>ຍອດຄົງເຫຼືອ</TableHead>
-                                        <TableHead>ໝາຍເຫດ</TableHead>
                                         <TableHead className="text-center">ລຶບ</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -345,6 +370,7 @@ export default function LoanDetailPage() {
                                     {repaymentSchedule.length > 0 ? (
                                         repaymentSchedule.map((r, index) => (
                                             <TableRow key={r.id}>
+                                                <TableCell className="text-center">{r.installment}</TableCell>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
                                                     {currencies.map(c => (
@@ -361,9 +387,6 @@ export default function LoanDetailPage() {
                                                         (loan.amount?.[c] > 0) && <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>
                                                     ))}
                                                 </TableCell>
-                                                 <TableCell className="p-1">
-                                                    <Input defaultValue={r.note} onBlur={(e) => handleRepaymentUpdate(r.id, 'note', e.target.value)} className="h-8"/>
-                                                </TableCell>
                                                 <TableCell className="text-center">
                                                     <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
@@ -373,7 +396,7 @@ export default function LoanDetailPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={currencies.filter(c => (loan.amount[c] || 0) > 0).length + 3} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                            <TableCell colSpan={6} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -401,3 +424,5 @@ export default function LoanDetailPage() {
     );
 }
 
+
+    

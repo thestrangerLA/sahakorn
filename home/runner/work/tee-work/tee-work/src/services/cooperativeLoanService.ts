@@ -124,7 +124,7 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
     const profit = currencies.reduce((acc, c) => {
         acc[c] = (loanData.repaymentAmount[c] || 0) - (loanData.amount[c] || 0);
         return acc;
-    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
+    }, { kip: 0, thb: 0, usd: 0, cny: 0 } as CurrencyValues);
 
     await recordUserAction({
       action: actionType,
@@ -138,7 +138,7 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
 };
 
 
-export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id'>>) => {
+export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
     await updateDoc(loanDocRef, updates);
 };
@@ -305,3 +305,5 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
+
+    
