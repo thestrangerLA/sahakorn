@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal, Banknote, CheckCircle, Hourglass, ChevronDown } from "lucide-react";
+import { ArrowLeft, PlusCircle, MoreHorizontal, ChevronDown, Banknote, Clock, AlertTriangle, FileText } from "lucide-react";
 import { format, getYear } from 'date-fns';
 import type { Loan, CooperativeMember, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeLoans, deleteLoan, listenToAllRepayments } from '@/services/cooperativeLoanService';
@@ -35,11 +34,24 @@ import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
-    return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat('lo-LA', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 };
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 const currencies: (keyof Pick<CurrencyValues, 'kip' | 'thb' | 'usd' | 'cny'>)[] = ['kip', 'thb', 'usd', 'cny'];
+
+const SummaryStatCard = ({ title, value, icon }: { title: string, value: string, icon: React.ReactNode }) => (
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            {icon}
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{value}</div>
+        </CardContent>
+    </Card>
+);
+
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -100,31 +112,35 @@ export default function CooperativeLoansPage() {
             });
             
             const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
-            const calculatedStatus = totalOutstanding <= 0.01 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
+            let calculatedStatus: 'ຈ່າຍໝົດແລ້ວ' | 'ຍັງຄ້າງ' | 'ລໍການອະນຸມັດ' = 'ຍັງຄ້າງ';
+            if (loan.status === 'pending') {
+                calculatedStatus = 'ລໍການອະນຸມັດ';
+            } else if (totalOutstanding <= 0.01) {
+                calculatedStatus = 'ຈ່າຍໝົດແລ້ວ';
+            }
+
 
             return { ...loan, totalPaid, outstandingBalance, profit, calculatedStatus };
         });
     }, [loans, repayments, selectedYear]);
 
     const summary = useMemo(() => {
-        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalProfitAmount: CurrencyValues = { ...initialCurrencyValues };
-
-        loansWithDetails.forEach(loan => {
-            currencies.forEach(c => {
-                 totalLoanAmount[c] += loan.amount[c] || 0;
-                 totalPaidAmount[c] += loan.totalPaid[c] || 0;
-                 totalProfitAmount[c] += loan.profit[c] || 0;
-
-                 if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
-                    totalOutstandingAmount[c] += loan.outstandingBalance[c] || 0;
-                 }
-            });
-        });
+        const totalLoanCount = loansWithDetails.length;
+        const pendingCount = loansWithDetails.filter(l => l.status === 'pending').length;
+        const overdueCount = loansWithDetails.filter(l => l.calculatedStatus === 'ຍັງຄ້າງ').length;
         
-        return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount, totalProfitAmount };
+        const totalOutstandingKIP = loansWithDetails.reduce((sum, loan) => {
+            if (loan.calculatedStatus === 'ຍັງຄ້າງ') {
+                 // Simple sum, assuming all are in KIP for this summary card
+                 return sum + (loan.outstandingBalance.kip || 0) + 
+                              (loan.outstandingBalance.thb * 700) + // Example conversion rate
+                              (loan.outstandingBalance.usd * 25000); // Example conversion rate
+            }
+            return sum;
+        }, 0);
+
+
+        return { totalLoanCount, pendingCount, overdueCount, totalOutstandingKIP };
     }, [loansWithDetails]);
 
 
@@ -193,44 +209,10 @@ export default function CooperativeLoansPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                      {currencies.map(c => (
-                        (summary.totalLoanAmount[c] > 0 || summary.totalPaidAmount[c] > 0) &&
-                        <Card key={c}>
-                          <CardHeader>
-                            <CardTitle className="text-lg">
-                              ສະຫຼຸບຍອດ {c.toUpperCase()}
-                            </CardTitle>
-                          </CardHeader>
-
-                          <CardContent className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">ຍອດສິນເຊື່ອທັງໝົດ</span>
-                              <span className="font-medium">
-                                {formatCurrency(summary.totalLoanAmount[c])}
-                              </span>
-                            </div>
-                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">ຍອດກຳໄລ</span>
-                                <span className="font-medium text-blue-600">
-                                    {formatCurrency(summary.totalProfitAmount[c])}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">ຍອດຈ່າຍແລ້ວ</span>
-                              <span className="font-medium text-green-600">
-                                {formatCurrency(summary.totalPaidAmount[c])}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">ຍອດຄົງເຫຼືອ</span>
-                              <span className="font-medium text-red-600">
-                                {formatCurrency(summary.totalOutstandingAmount[c])}
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                    <SummaryStatCard title="ສັນຍາທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
+                    <SummaryStatCard title="ຍອດເງິນກູ້ຄົງຄ້າງ" value={`${formatCurrency(summary.totalOutstandingKIP)}`} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
+                    <SummaryStatCard title="ລໍການອະນຸມັດ" value={String(summary.pendingCount)} icon={<Clock className="h-4 w-4 text-muted-foreground" />}/>
+                    <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
                 </div>
                 <Card>
                     <CardHeader>
@@ -294,7 +276,7 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
-                                                <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : 'warning'}>
+                                                <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
                                                     {loan.calculatedStatus}
                                                 </Badge>
                                             </TableCell>

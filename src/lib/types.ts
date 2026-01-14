@@ -45,6 +45,7 @@ export type UserAction =
   | 'COLLECT_MURABAHA_RECEIVABLE'
   | 'PAY_GENERAL_EXPENSE';
 
+
 export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
 
 export interface Transaction {
@@ -260,11 +261,7 @@ export interface CooperativeMember {
   memberId: string;
   name: string;
   joinDate: Date;
-  deposits: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  deposits: Omit<CurrencyValues, 'cny'>;
   createdAt: Date;
 }
 
@@ -297,7 +294,7 @@ export interface Loan {
   repaymentAmount: CurrencyValues;
   purpose: string;
   applicationDate: Date;
-  status: 'active' | 'closed';
+  status: 'active' | 'closed' | 'pending';
   createdAt: Date;
   loanType?: IslamicLoanType;
 }
