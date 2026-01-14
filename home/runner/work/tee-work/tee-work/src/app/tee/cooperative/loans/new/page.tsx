@@ -127,7 +127,7 @@ export default function NewLoanPage() {
         }
 
         const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
-            memberId: borrowerType === 'member' ? selectedMemberId : undefined,
+            memberId: borrowerType === 'member' && selectedMemberId ? selectedMemberId : undefined,
             debtorName: borrowerType === 'debtor' ? debtorName : undefined,
             loanCode,
             amount: { ...principalAmount, cny: 0 },
@@ -142,9 +142,13 @@ export default function NewLoanPage() {
             const newLoanId = await addLoan(loanData);
             toast({ title: "ສ້າງຄຳຮ້ອງສິນເຊື່ອສຳເລັດ", description: `ລະຫັດ: ${loanCode}` });
             router.push(`/tee/cooperative/loans/${newLoanId}`);
-        } catch (error) {
-            console.error("Error creating loan application:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        } catch (error: any) {
+            console.error("Add loan error:", error);
+            toast({
+                title: "ເກີດຂໍ້ຜິດພາດ",
+                description: error?.message || "ບໍ່ສາມາດບັນທຶກຂໍ້ມູນໄດ້",
+                variant: "destructive",
+            });
         }
     };
     
@@ -285,4 +289,3 @@ export default function NewLoanPage() {
         </div>
     );
 }
-
