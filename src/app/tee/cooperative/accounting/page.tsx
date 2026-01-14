@@ -20,7 +20,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary } from '@/lib/types';
+import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
+import { listenToCooperativeDeposits } from '@/services/cooperativeDepositService';
+import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary, CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { cn } from '@/lib/utils';
 
@@ -85,6 +87,8 @@ export default function CooperativeAccountingPage() {
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
     const [summary, setSummary] = useState<AccountSummary | null>(null);
+    const [members, setMembers] = useState<CooperativeMember[]>([]);
+    const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -103,11 +107,15 @@ export default function CooperativeAccountingPage() {
     const [bcelEditValues, setBcelEditValues] = useState<CurrencyValues>({ ...initialCurrencyValues });
 
     useEffect(() => {
-        const unsubscribe = listenToCooperativeTransactions(setTransactions);
+        const unsubscribeTxs = listenToCooperativeTransactions(setTransactions);
         const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
+        const unsubscribeMembers = listenToCooperativeMembers(setMembers);
+        const unsubscribeDeposits = listenToCooperativeDeposits(setDeposits);
         return () => {
-            unsubscribe();
+            unsubscribeTxs();
             unsubscribeSummary();
+            unsubscribeMembers();
+            unsubscribeDeposits();
         };
     }, []);
 
@@ -116,6 +124,23 @@ export default function CooperativeAccountingPage() {
         setAccountBalances(balances);
     }, [transactions]);
     
+    const totalMemberDeposits = useMemo(() => {
+        return members.reduce((total, member) => {
+            const memberDeposits = deposits.filter(d => d.memberId === member.id);
+            const currentTotal = {
+                kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
+                thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
+                usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
+                cny: 0
+            };
+            total.kip += currentTotal.kip;
+            total.thb += currentTotal.thb;
+            total.usd += currentTotal.usd;
+            return total;
+        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+    }, [members, deposits]);
+
+
     useEffect(() => {
         if(summary?.bankAccount){
             setBcelEditValues(summary.bankAccount);
@@ -248,19 +273,32 @@ export default function CooperativeAccountingPage() {
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                     {accounts
                         .filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity')))
-                        .map(acc => (
+                        .map(acc => {
+                            let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
+                            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
+                                balances = summary.bankAccount;
+                            }
+                             if (acc.id === 'share_capital') {
+                                balances = totalMemberDeposits;
+                            }
+
+                            return (
                             <SummaryCard 
                                 key={acc.id} 
                                 title={acc.name} 
-                                balances={accountBalances[acc.id] || { ...initialCurrencyValues }} 
+                                balances={balances} 
                                 icon={
                                     acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
                                     acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
-                                onClick={acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined}
+                                onClick={
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
+                                    acc.id === 'share_capital' ? () => router.push('/tee/cooperative/members') : undefined
+                                }
+                                href={acc.href}
                             />
-                        ))
+                        )})
                     }
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
@@ -435,3 +473,5 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+
+    

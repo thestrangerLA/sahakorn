@@ -11,8 +11,7 @@ import {
     orderBy,
     serverTimestamp,
     Timestamp,
-    runTransaction,
-    writeBatch
+    runTransaction
 } from 'firebase/firestore';
 import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
 
@@ -32,6 +31,7 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
                 kip: data.kip || 0,
                 thb: data.thb || 0,
                 usd: data.usd || 0,
+                cny: data.cny || 0,
             } as CooperativeDeposit);
         });
         callback(deposits);
@@ -40,28 +40,33 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
 };
 
 export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
-    // 1. Create the journal entry and get the transaction group ID
+    
+    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0 || (deposit.cny || 0) < 0;
+    const actionType = isWithdrawal ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT';
+
+    // 1. Create the journal entry first and get the transaction group ID
     const transactionGroupId = await recordUserAction({
-        action: (deposit.kip < 0 || deposit.thb < 0 || deposit.usd < 0) ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT',
+        action: actionType,
         amount: {
             kip: Math.abs(deposit.kip),
             thb: Math.abs(deposit.thb),
             usd: Math.abs(deposit.usd),
-            cny: 0,
+            cny: Math.abs(deposit.cny || 0),
         },
-        description: `Deposit by ${deposit.memberName}`,
+        description: `${isWithdrawal ? 'Withdrawal' : 'Deposit'} by ${deposit.memberName}`,
         date: deposit.date,
     });
-    
-    // 2. Add the deposit document with the transaction group ID
+
+    // 2. Now, add the deposit document with the associated transaction group ID
     const depositWithTimestamp = {
         ...deposit,
-        transactionGroupId,
+        transactionGroupId, // Link to the journal entry
         date: Timestamp.fromDate(deposit.date),
         createdAt: serverTimestamp()
     };
     await addDoc(depositsCollectionRef, depositWithTimestamp);
 };
+
 
 export const deleteCooperativeDeposit = async (id: string) => {
     await runTransaction(db, async (transaction) => {
@@ -83,3 +88,5 @@ export const deleteCooperativeDeposit = async (id: string) => {
         transaction.delete(depositDocRef);
     });
 };
+
+    

@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -30,6 +29,7 @@ export interface Account {
   code: string
   name: string
   type: AccountType
+  href?: string
 }
 
 export type UserAction =
@@ -238,10 +238,10 @@ export interface TourAccountSummary {
 
 export interface DocumentAccountSummary {
     id: string;
-    capital: Omit<CurrencyValues, 'cny'>;
-    cash: Omit<CurrencyValues, 'cny'>;
-    transfer: Omit<CurrencyValues, 'cny'>;
-    bankAccount?: Omit<CurrencyValues, 'cny'>;
+    capital: CurrencyValues;
+    cash: CurrencyValues;
+    transfer: CurrencyValues;
+    bankAccount?: CurrencyValues;
 }
 
 export interface ApplianceCustomer {
@@ -275,6 +275,7 @@ export interface CooperativeDeposit {
   kip: number;
   thb: number;
   usd: number;
+  cny: number;
   createdAt: Date;
   transactionGroupId?: string;
 }
@@ -325,3 +326,4 @@ export interface AccountingPeriod {
   closedAt?: Date;
 }
 
+    
