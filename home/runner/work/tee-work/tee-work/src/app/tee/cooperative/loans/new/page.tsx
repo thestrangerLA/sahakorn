@@ -226,10 +226,10 @@ export default function NewLoanPage() {
                                     </Select>
                                 </div>
                                 {loanType !== 'QARD_HASAN' && (
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
-                                        <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
-                                    </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
+                                    <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
+                                </div>
                                 )}
                                  <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
