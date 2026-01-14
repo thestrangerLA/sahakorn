@@ -48,11 +48,6 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
     await setDoc(summaryDocRef, summary, { merge: true });
 };
 
-export const updateBankAccountSummary = async (newBalance: CurrencyValues) => {
-    await updateDoc(summaryDocRef, { bankAccount: newBalance });
-};
-
-
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
   { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }

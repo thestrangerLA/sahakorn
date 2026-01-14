@@ -16,10 +16,10 @@ import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { cn } from '@/lib/utils';
@@ -84,6 +84,7 @@ export default function CooperativeAccountingPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
+    const [summary, setSummary] = useState<AccountSummary | null>(null);
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -103,15 +104,23 @@ export default function CooperativeAccountingPage() {
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        return () => unsubscribe();
+        const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
+        return () => {
+            unsubscribe();
+            unsubscribeSummary();
+        };
     }, []);
 
     useEffect(() => {
         const balances = getAccountBalances(transactions);
         setAccountBalances(balances);
-        const bcelBalance = balances['bank_bcel'] || { ...initialCurrencyValues };
-        setBcelEditValues(bcelBalance);
     }, [transactions]);
+    
+    useEffect(() => {
+        if(summary?.bankAccount){
+            setBcelEditValues(summary.bankAccount);
+        }
+    }, [summary?.bankAccount, isEditBcelOpen]);
 
     const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
         stateSetter(prev => ({ ...prev, [currency]: Number(value) || 0 }));
@@ -214,6 +223,7 @@ export default function CooperativeAccountingPage() {
             toast({ title: "Error saving BCEL balance", variant: "destructive" });
         }
     };
+
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -406,7 +416,7 @@ export default function CooperativeAccountingPage() {
              <Dialog open={isEditBcelOpen} onOpenChange={setEditBcelOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <CardTitle>ແກ້ໄຂຍອດເງິນໃນບັນຊີ BCEL</CardTitle>
+                        <DialogTitle>ແກ້ໄຂຍອດເງິນໃນບັນຊີ BCEL</DialogTitle>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 py-4">
                         {currencies.map(c => (
