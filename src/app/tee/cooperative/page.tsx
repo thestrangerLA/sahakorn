@@ -32,7 +32,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍ ແລະ ເບິ່ງພາບລວມການເງິນຂອງສະຫະກອນ
+                  ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍ และ ເບິ່ງພາບລວມການເງິນຂອງສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
@@ -53,12 +53,12 @@ export default function CooperativePage() {
           <Link href="/tee/cooperative/members">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ ແລະ ເງິນຝາກ</CardTitle>
+                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ และ ເງິນຝາກ</CardTitle>
                 <Users className="h-8 w-8 text-primary" />
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ຈັດການຂໍ້ມູນສະມາຊິກ ແລະ ບັນທຶກເງິນຝາກ
+                  ຈັດການຂໍ້ມູນສະມາຊິກ และ ບັນທຶກເງິນຝາກ
                 </p>
               </CardContent>
             </Card>
@@ -71,20 +71,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ສ້າງ ແລະ ຕິດຕາມສັນຍາສິນເຊື່ອ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/tee/cooperative/loans/payment">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ຊຳລະສິນເຊື່ອ</CardTitle>
-                <DollarSign className="h-8 w-8 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                    ບັນທຶກການຊຳລະຄືນສິນເຊື່ອ
+                  ສ້າງ และ ຕິດຕາມສັນຍາສິນເຊື່ອ
                 </p>
               </CardContent>
             </Card>
@@ -111,19 +98,6 @@ export default function CooperativePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ເບິ່ງລາຍງານ ແລະ ສະຫຼຸບຜົນປະກອບການ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/tee/cooperative/accounting/periods">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ຈັດການງວດບັນຊີ</CardTitle>
-                <CalendarClock className="h-8 w-8 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ປິດງວດບັນຊີປະຈຳເດືອນ ເພື່ອສະຫຼຸບຍອດ
                 </p>
               </CardContent>
             </Card>
