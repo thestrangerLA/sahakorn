@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Trash2, Calendar as CalendarIcon, PlusCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, addYears } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
 import { listenToRepaymentsForLoan, listenToLoan, deleteLoanRepayment, updateLoanRepayment, addLoanRepayment } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
@@ -88,7 +88,11 @@ export default function LoanDetailPage() {
             });
         }
         
-        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 } };
+        return { 
+            totalPaid: paid, 
+            outstandingBalance: outstanding, 
+            totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+        };
     }, [repayments, loan]);
 
     const handleRepaymentUpdate = async (repaymentId: string, field: keyof LoanRepayment, value: any) => {
@@ -184,6 +188,9 @@ export default function LoanDetailPage() {
     if (!loan) return <div className="text-center p-8">Loan not found.</div>;
 
     const totalOutstandingValue = Object.values(outstandingBalance).reduce((sum, val) => sum + val, 0);
+    
+    const dueDate = loan.durationYears ? addYears(loan.applicationDate, loan.durationYears) : null;
+
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -208,7 +215,7 @@ export default function LoanDetailPage() {
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div><span className="font-semibold">ລະຫັດສິນເຊື່ອ:</span> {loan.loanCode}</div>
                                 <div><span className="font-semibold">ສະມາຊິກ:</span> {member?.name || '...'}</div>
-                                <div><span className="font-semibold">ວັນທີກູ້:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
+                                <div><span className="font-semibold">ຈຸດປະສົງ:</span> {loan.purpose || '-'}</div>
                             </div>
                             <Table className="mt-4">
                                 <TableHeader>
@@ -238,6 +245,27 @@ export default function LoanDetailPage() {
                             </Table>
                         </CardContent>
                     </Card>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-5 w-5"/> ໄລຍະເວລາ</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm">
+                            <div className="flex justify-between">
+                                <span>ວັນທີເລີ່ມສັນຍາ:</span>
+                                <strong>{format(loan.applicationDate, 'dd/MM/yyyy')}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>ວັນຄົບກຳນົດ:</span>
+                                <strong>{dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</strong>
+                            </div>
+                             <div className="flex justify-between">
+                                <span>ໄລຍະເວລາ:</span>
+                                <strong>{loan.durationYears || 'N/A'} ປີ</strong>
+                            </div>
+                        </CardContent>
+                    </Card>
+
 
                     <Card>
                         <CardHeader>
@@ -283,9 +311,9 @@ export default function LoanDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[120px]">ວັນທີ</TableHead>
+                                        <TableHead>ວັນທີ</TableHead>
                                         <TableHead>ໝາຍເຫດ</TableHead>
-                                        {currencies.map(c => (
+                                         {currencies.map(c => (
                                             (loan.amount[c] || 0) > 0 && <TableHead key={c} className="text-right">{c.toUpperCase()}</TableHead>
                                         ))}
                                         <TableHead className="text-center">ລຶບ</TableHead>
@@ -296,11 +324,11 @@ export default function LoanDetailPage() {
                                         repayments.map(r => (
                                             <TableRow key={r.id}>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                                 <TableCell className="p-1">
+                                                <TableCell className="p-1">
                                                     <Input defaultValue={r.note} onBlur={(e) => handleRepaymentUpdate(r.id, 'note', e.target.value)} className="h-8"/>
                                                 </TableCell>
                                                 {currencies.map(c => (
-                                                    (loan.amount[c] || 0) > 0 &&
+                                                     (loan.amount[c] || 0) > 0 &&
                                                     <TableCell key={c} className="p-1">
                                                         <Input type="number" defaultValue={r.amountPaid[c]} onBlur={(e) => handleRepaymentAmountUpdate(r.id, c, Number(e.target.value))} className="h-8 text-right"/>
                                                     </TableCell>
@@ -341,3 +369,4 @@ export default function LoanDetailPage() {
         </div>
     );
 }
+
