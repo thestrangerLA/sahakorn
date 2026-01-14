@@ -16,12 +16,13 @@ import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
+import { cn } from '@/lib/utils';
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
