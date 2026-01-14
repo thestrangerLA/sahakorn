@@ -52,6 +52,26 @@ const SummaryStatCard = ({ title, value, icon }: { title: string, value: string,
     </Card>
 );
 
+const MultiCurrencySummaryCard = ({ title, balances, icon }: { title: string, balances: CurrencyValues, icon: React.ReactNode }) => (
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            {icon}
+        </CardHeader>
+        <CardContent>
+            {Object.entries(balances).map(([currency, value]) => {
+                if (value === 0) return null;
+                return (
+                    <div key={currency} className="text-xl font-bold">
+                        {formatCurrency(value)} <span className="text-xs text-muted-foreground">{currency.toUpperCase()}</span>
+                    </div>
+                )
+            })}
+             {Object.values(balances).every(v => v === 0) && <div className="text-2xl font-bold">0</div>}
+        </CardContent>
+    </Card>
+)
+
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -129,18 +149,17 @@ export default function CooperativeLoansPage() {
         const pendingCount = loansWithDetails.filter(l => l.status === 'pending').length;
         const overdueCount = loansWithDetails.filter(l => l.calculatedStatus === 'ຍັງຄ້າງ').length;
         
-        const totalOutstandingKIP = loansWithDetails.reduce((sum, loan) => {
+        const totalOutstanding = loansWithDetails.reduce((acc, loan) => {
             if (loan.calculatedStatus === 'ຍັງຄ້າງ') {
-                 // Simple sum, assuming all are in KIP for this summary card
-                 return sum + (loan.outstandingBalance.kip || 0) + 
-                              (loan.outstandingBalance.thb * 700) + // Example conversion rate
-                              (loan.outstandingBalance.usd * 25000); // Example conversion rate
+                 currencies.forEach(c => {
+                     acc[c] += loan.outstandingBalance[c] || 0;
+                 });
             }
-            return sum;
-        }, 0);
+            return acc;
+        }, { ...initialCurrencyValues });
 
 
-        return { totalLoanCount, pendingCount, overdueCount, totalOutstandingKIP };
+        return { totalLoanCount, pendingCount, overdueCount, totalOutstanding };
     }, [loansWithDetails]);
 
 
@@ -210,7 +229,7 @@ export default function CooperativeLoansPage() {
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <SummaryStatCard title="ສັນຍາທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
-                    <SummaryStatCard title="ຍອດເງິນກູ້ຄົງຄ້າງ" value={`${formatCurrency(summary.totalOutstandingKIP)}`} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
+                    <MultiCurrencySummaryCard title="ຍອດເງິນກູ້ຄົງຄ້າງ" balances={summary.totalOutstanding} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                     <SummaryStatCard title="ລໍການອະນຸມັດ" value={String(summary.pendingCount)} icon={<Clock className="h-4 w-4 text-muted-foreground" />}/>
                     <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
                 </div>
@@ -327,3 +346,5 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
+```
