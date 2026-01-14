@@ -306,7 +306,7 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: CurrencyValues;
+  amountPaid: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }

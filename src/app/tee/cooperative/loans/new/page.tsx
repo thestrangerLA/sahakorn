@@ -23,8 +23,8 @@ import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 const MemberSelector = ({ members, selectedMemberId, onSelectMember }: { members: CooperativeMember[], selectedMemberId: string | null, onSelectMember: (id: string | null) => void }) => {
     const [open, setOpen] = useState(false);
@@ -72,8 +72,8 @@ export default function NewLoanPage() {
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
     const [loanType, setLoanType] = useState<IslamicLoanType>('QARD_HASAN');
-    const [principalAmount, setPrincipalAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
-    const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
+    const [principalAmount, setPrincipalAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
+    const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>();
     const [durationYears, setDurationYears] = useState<number>(1);
@@ -92,7 +92,6 @@ export default function NewLoanPage() {
                 kip: (principalAmount.kip || 0) + (murabahaProfitAmount.kip || 0),
                 thb: (principalAmount.thb || 0) + (murabahaProfitAmount.thb || 0),
                 usd: (principalAmount.usd || 0) + (murabahaProfitAmount.usd || 0),
-                cny: (principalAmount.cny || 0) + (murabahaProfitAmount.cny || 0),
             };
         }
         return principalAmount;
@@ -105,7 +104,7 @@ export default function NewLoanPage() {
         };
     }, []);
 
-    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<Omit<CurrencyValues, 'cny'>>>, currency: keyof Omit<CurrencyValues, 'cny'>, value: string) => {
         stateSetter(prev => ({
             ...prev,
             [currency]: Number(value) || 0,
@@ -121,31 +120,36 @@ export default function NewLoanPage() {
             return;
         }
 
-        const totalAmount = (principalAmount.kip || 0) + (principalAmount.thb || 0) + (principalAmount.usd || 0) + (principalAmount.cny || 0);
+        const totalAmount = (principalAmount.kip || 0) + (principalAmount.thb || 0) + (principalAmount.usd || 0);
         if ((borrowerType === 'member' && !selectedMemberId) || (borrowerType === 'debtor' && !debtorName) || totalAmount === 0 || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
         const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
-            memberId: borrowerType === 'member' ? selectedMemberId : undefined,
+            memberId: borrowerType === 'member' && selectedMemberId ? selectedMemberId : undefined,
             debtorName: borrowerType === 'debtor' ? debtorName : undefined,
             loanCode,
-            amount: principalAmount,
-            repaymentAmount: repaymentAmount,
+            amount: { ...principalAmount, cny: 0 },
+            repaymentAmount: { ...repaymentAmount, cny: 0 },
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
-            durationYears: durationYears,
+            durationYears: loanType === 'QARD_HASAN' ? 0 : durationYears,
         };
 
         try {
+            console.log("loanData to save:", loanData);
             const newLoanId = await addLoan(loanData);
             toast({ title: "ສ້າງຄຳຮ້ອງສິນເຊື່ອສຳເລັດ", description: `ລະຫັດ: ${loanCode}` });
             router.push(`/tee/cooperative/loans/${newLoanId}`);
-        } catch (error) {
-            console.error("Error creating loan application:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        } catch (error: any) {
+            console.error("Add loan error:", error);
+            toast({
+                title: "ເກີດຂໍ້ຜິດພາດ",
+                description: error?.message || "ບໍ່ສາມາດບັນທຶກຂໍ້ມູນໄດ້",
+                variant: "destructive",
+            });
         }
     };
     
@@ -226,10 +230,12 @@ export default function NewLoanPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {loanType !== 'QARD_HASAN' && (
                                 <div className="grid gap-2">
                                     <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
                                     <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
                                 </div>
+                                )}
                                  <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
                                     <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
@@ -284,5 +290,3 @@ export default function NewLoanPage() {
         </div>
     );
 }
-
-    
