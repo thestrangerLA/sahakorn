@@ -58,6 +58,7 @@ export interface Transaction {
   amount: CurrencyValues;
   description: string;
   reference?: string;
+  loanId?: string;
   createdAt: Date;
   businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
   saleId?: string;
@@ -306,7 +307,7 @@ export interface Loan {
 export interface LoanRepayment {
   id: string;
   loanId: string;
-  transactionGroupId?: string; // Link to the accounting entry
+  transactionGroupId?: string;
   repaymentDate: Date;
   amountPaid: Omit<CurrencyValues, 'cny'>;
   principalPortion?: Omit<CurrencyValues, 'cny'>;
@@ -322,3 +323,4 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
+

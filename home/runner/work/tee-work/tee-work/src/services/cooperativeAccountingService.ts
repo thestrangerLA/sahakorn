@@ -50,13 +50,13 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 };
 
 export async function createJournalTransaction(
-  { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
-  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
+  { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false, loanId }:
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string }
 ): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
 
-  const debitData = {
+  const debitData: Omit<Transaction, 'id'> & { createdAt: any } = {
     transactionGroupId,
     date: transactionDate,
     accountId: debitAccountId,
@@ -68,9 +68,10 @@ export async function createJournalTransaction(
     userAction,
     contractType,
     systemGenerated,
+    loanId,
   };
 
-  const creditData = {
+  const creditData: Omit<Transaction, 'id'> & { createdAt: any } = {
     transactionGroupId,
     date: transactionDate,
     accountId: creditAccountId,
@@ -82,7 +83,13 @@ export async function createJournalTransaction(
     userAction,
     contractType,
     systemGenerated,
+    loanId,
   };
+  
+  if (!loanId) {
+      delete debitData.loanId;
+      delete creditData.loanId;
+  }
 
   const batch = writeBatch(db);
   batch.set(doc(transactionsCollectionRef), debitData);
@@ -92,7 +99,7 @@ export async function createJournalTransaction(
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}): Promise<string> {
+export async function recordUserAction({ action, amount, profit, description, date, loanId }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string}): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
 
     const primaryAmount = { ...amount };
@@ -105,7 +112,8 @@ export async function recordUserAction({ action, amount, profit, description, da
         date,
         userAction: action,
         contractType: contractType,
-        systemGenerated: true
+        systemGenerated: true,
+        loanId,
     });
     
     // Handle secondary entries (like for Murabaha profit)
@@ -126,7 +134,8 @@ export async function recordUserAction({ action, amount, profit, description, da
                     date,
                     userAction: action,
                     contractType: contractType,
-                    systemGenerated: true
+                    systemGenerated: true,
+                    loanId
                 });
             }
         }
@@ -213,3 +222,4 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
     return balances;
 }
+

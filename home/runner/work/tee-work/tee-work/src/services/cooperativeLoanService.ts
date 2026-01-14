@@ -116,7 +116,6 @@ export const addLoan = async (
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
-    // Create a mutable copy to clean up undefined fields
     const newLoan: any = {
         ...loanData,
         status: 'active' as const,
@@ -124,7 +123,6 @@ export const addLoan = async (
         applicationDate: applicationTimestamp,
     };
     
-    // Firestore doesn't allow 'undefined' fields. Clean them up.
     if (newLoan.memberId === null || newLoan.memberId === undefined) {
         delete newLoan.memberId;
     }
@@ -152,8 +150,9 @@ export const addLoan = async (
         action: actionType,
         amount: { ...newLoan.amount, cny: 0 },
         profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
-        description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId ? loanData.memberId : loanData.debtorName}`,
+        description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
         date: loanData.applicationDate, // Use original Date object
+        loanId: docRef.id
     });
 
     return docRef.id;
@@ -265,7 +264,8 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         amount: { ...principalPortion, cny: 0 },
         profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
         description: `Repayment for Loan #${loan.loanCode}`,
-        date: paymentDate
+        date: paymentDate,
+        loanId: loan.id
     });
 
     return { principalPortion, profitPortion, transactionGroupId };
@@ -315,6 +315,7 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
 
         // Delete the accounting entries if a transactionGroupId exists
         if (repaymentData.transactionGroupId) {
+            // We need a function to delete a group of transactions
             await deleteTransactionGroup(repaymentData.transactionGroupId);
         }
 
@@ -347,3 +348,4 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
+

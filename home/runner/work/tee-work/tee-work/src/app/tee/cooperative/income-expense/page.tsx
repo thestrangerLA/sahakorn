@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, Trash2 } from "lucide-react"
+import { ArrowLeft, BookOpen, Trash2, Landmar } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -25,8 +26,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 
 
-const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 const formatCurrency = (value: number) => {
@@ -52,8 +53,8 @@ const SummaryCard = ({ title, balances, titleClassName }: { title: string, balan
 );
 
 const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues; expense: CurrencyValues; net: CurrencyValues } => {
-    const income = { ...initialCurrencyValues, cny: 0 };
-    const expense = { ...initialCurrencyValues, cny: 0 };
+    const income = { ...initialCurrencyValues };
+    const expense = { ...initialCurrencyValues };
 
     transactions.forEach(tx => {
         const account = defaultAccounts.find(a => a.id === tx.accountId);
@@ -74,7 +75,7 @@ const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues
     const net = currencies.reduce((acc, c) => {
         acc[c] = income[c] - expense[c];
         return acc;
-    }, { ...initialCurrencyValues, cny: 0 });
+    }, { ...initialCurrencyValues });
 
     return { income, expense, net };
 };
@@ -281,7 +282,15 @@ export default function CooperativeIncomeExpensePage() {
                                     return (
                                         <TableRow key={tx.id}>
                                             <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
-                                            <TableCell>{tx.description}</TableCell>
+                                            <TableCell>
+                                                {tx.loanId ? (
+                                                <Link href={`/tee/cooperative/loans/${tx.loanId}`} className="hover:underline text-blue-600">
+                                                    {tx.description}
+                                                </Link>
+                                                ) : (
+                                                tx.description
+                                                )}
+                                            </TableCell>
                                             <TableCell>{account.name}</TableCell>
                                             <TableCell>
                                                  <Badge variant={effectiveType === 'income' ? 'default' : 'destructive'} className={effectiveType === 'income' ? 'bg-green-100 text-green-800' : ''}>
@@ -327,3 +336,4 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
+
