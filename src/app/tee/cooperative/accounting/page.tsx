@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -16,10 +16,11 @@ import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogFooter } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, CurrencyValues, UserAction } from '@/lib/types';
+import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
@@ -30,8 +31,9 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances, icon, className }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string }) => (
-    <Card className={`${className || ''}`}>
+const SummaryCard = ({ title, balances, icon, className, onClick }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void }) => (
+    <Card className={cn("relative", className, onClick && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
+        {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex items-center gap-2">
                <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -40,14 +42,14 @@ const SummaryCard = ({ title, balances, icon, className }: { title: string, bala
         </CardHeader>
         <CardContent>
             {currencies.map(c => (
-                (balances[c] || 0) !== 0 && (
+                (balances?.[c] || 0) !== 0 && (
                 <div key={c} className="text-xs">
                     <span className="font-semibold uppercase">{c}: </span> 
                     <span>{formatCurrency(balances[c] || 0)}</span>
                 </div>
                 )
             ))}
-             {Object.values(balances).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
+             {Object.values(balances || {}).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
         </CardContent>
     </Card>
 );
@@ -94,6 +96,9 @@ export default function CooperativeAccountingPage() {
     const [filterAccountId, setFilterAccountId] = useState<string>('all');
     const [filterDescription, setFilterDescription] = useState('');
 
+    // Edit BCEL Dialog State
+    const [isEditBcelOpen, setEditBcelOpen] = useState(false);
+    const [bcelEditValues, setBcelEditValues] = useState<CurrencyValues>({ ...initialCurrencyValues });
 
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
@@ -103,6 +108,8 @@ export default function CooperativeAccountingPage() {
     useEffect(() => {
         const balances = getAccountBalances(transactions);
         setAccountBalances(balances);
+        const bcelBalance = balances['bank_bcel'] || { ...initialCurrencyValues };
+        setBcelEditValues(bcelBalance);
     }, [transactions]);
 
     const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
@@ -197,6 +204,16 @@ export default function CooperativeAccountingPage() {
         }
     }
 
+    const handleSaveBcel = async () => {
+        try {
+            await updateCooperativeAccountSummary({ bankAccount: bcelEditValues });
+            toast({ title: "ອັບເດດຍອດບັນຊີ BCEL ສຳເລັດ" });
+            setEditBcelOpen(false);
+        } catch (error) {
+            toast({ title: "Error saving BCEL balance", variant: "destructive" });
+        }
+    };
+
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -218,18 +235,22 @@ export default function CooperativeAccountingPage() {
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-                     {accounts.filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity'))).map(acc => (
-                         <SummaryCard 
-                            key={acc.id} 
-                            title={acc.name} 
-                            balances={accountBalances[acc.id] || { ...initialCurrencyValues }} 
-                            icon={
-                                acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
-                                acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                            }
-                         />
-                     ))}
+                    {accounts
+                        .filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity')))
+                        .map(acc => (
+                            <SummaryCard 
+                                key={acc.id} 
+                                title={acc.name} 
+                                balances={accountBalances[acc.id] || { ...initialCurrencyValues }} 
+                                icon={
+                                    acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
+                                    acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                }
+                                onClick={acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined}
+                            />
+                        ))
+                    }
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
@@ -381,6 +402,25 @@ export default function CooperativeAccountingPage() {
                     </Card>
                 </div>
             </main>
+             <Dialog open={isEditBcelOpen} onOpenChange={setEditBcelOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <CardTitle>ແກ້ໄຂຍອດເງິນໃນບັນຊີ BCEL</CardTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                        {currencies.map(c => (
+                            <div key={c} className="grid gap-2">
+                                <Label htmlFor={`bcel-${c}`}>{c.toUpperCase()}</Label>
+                                <Input id={`bcel-${c}`} type="number" value={bcelEditValues[c]} onChange={e => setBcelEditValues(prev => ({...prev, [c]: Number(e.target.value) || 0}))} />
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditBcelOpen(false)}>ຍົກເລີກ</Button>
+                        <Button onClick={handleSaveBcel}>ບັນທຶກ</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
