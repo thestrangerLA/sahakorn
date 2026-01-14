@@ -130,12 +130,12 @@ export default function NewLoanPage() {
             memberId: borrowerType === 'member' ? selectedMemberId : undefined,
             debtorName: borrowerType === 'debtor' ? debtorName : undefined,
             loanCode,
-            amount: principalAmount,
-            repaymentAmount: repaymentAmount,
+            amount: { ...principalAmount, cny: 0 },
+            repaymentAmount: { ...repaymentAmount, cny: 0 },
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
-            durationYears: durationYears,
+            durationYears: loanType === 'QARD_HASAN' ? 0 : durationYears,
         };
 
         try {
@@ -225,10 +225,12 @@ export default function NewLoanPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
-                                    <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
-                                </div>
+                                {loanType !== 'QARD_HASAN' && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
+                                        <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
+                                    </div>
+                                )}
                                  <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
                                     <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
@@ -283,3 +285,4 @@ export default function NewLoanPage() {
         </div>
     );
 }
+
