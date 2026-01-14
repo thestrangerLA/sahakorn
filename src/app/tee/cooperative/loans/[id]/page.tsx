@@ -74,24 +74,40 @@ export default function LoanDetailPage() {
         };
     }, [id, member]);
 
-     const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
+     const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
         const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-        const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        let outstanding: CurrencyValues = loan?.repaymentAmount ? { ...loan.repaymentAmount } : { kip: 0, thb: 0, usd: 0, cny: 0 };
 
+        const schedule: any[] = [];
+        
         if (loan) {
-            currencies.forEach(c => {
-                const totalToRepay = loan.repaymentAmount[c] || 0;
+            let runningBalance = { ...loan.repaymentAmount };
+
+            // Sort repayments by date ascending to calculate running balance correctly
+            const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
+
+            sortedRepayments.forEach((r, index) => {
+                currencies.forEach(c => {
+                    const amountPaidForCurrency = r.amountPaid?.[c] || 0;
+                    paid[c] += amountPaidForCurrency;
+                    runningBalance[c] -= amountPaidForCurrency;
+                });
                 
-                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                paid[c] = paidForCurrency;
-                outstanding[c] = totalToRepay - paidForCurrency;
+                schedule.push({
+                    ...r,
+                    installment: index + 1,
+                    outstandingBalance: { ...runningBalance }
+                });
             });
+
+            outstanding = { ...runningBalance };
         }
         
         return { 
             totalPaid: paid, 
             outstandingBalance: outstanding, 
             totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            repaymentSchedule: schedule.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime()) // Sort back to descending for display
         };
     }, [repayments, loan]);
 
@@ -311,28 +327,29 @@ export default function LoanDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>ວັນທີ</TableHead>
-                                        <TableHead>ໝາຍເຫດ</TableHead>
-                                         {currencies.map(c => (
-                                            (loan.amount[c] || 0) > 0 && <TableHead key={c} className="text-right">{c.toUpperCase()}</TableHead>
-                                        ))}
+                                        <TableHead>ງວດທີ່ຈ່າຍ</TableHead>
+                                        <TableHead>ວັນທີຈ່າຍ</TableHead>
+                                        <TableHead>ຍອດຈ່າຍ</TableHead>
+                                        <TableHead>ຍອດຄົງເຫຼືອ</TableHead>
                                         <TableHead className="text-center">ລຶບ</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {repayments.length > 0 ? (
-                                        repayments.map(r => (
+                                    {repaymentSchedule.length > 0 ? (
+                                        repaymentSchedule.map((r) => (
                                             <TableRow key={r.id}>
+                                                <TableCell className="text-center">{r.installment}</TableCell>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell className="p-1">
-                                                    <Input defaultValue={r.note} onBlur={(e) => handleRepaymentUpdate(r.id, 'note', e.target.value)} className="h-8"/>
+                                                <TableCell>
+                                                    {currencies.map(c => (
+                                                        (r.amountPaid?.[c] > 0) && <div key={c}>{formatCurrency(r.amountPaid[c])} {c.toUpperCase()}</div>
+                                                    ))}
                                                 </TableCell>
-                                                {currencies.map(c => (
-                                                     (loan.amount[c] || 0) > 0 &&
-                                                    <TableCell key={c} className="p-1">
-                                                        <Input type="number" defaultValue={r.amountPaid[c]} onBlur={(e) => handleRepaymentAmountUpdate(r.id, c, Number(e.target.value))} className="h-8 text-right"/>
-                                                    </TableCell>
-                                                ))}
+                                                 <TableCell>
+                                                    {currencies.map(c => (
+                                                        (loan.amount?.[c] > 0) && <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>
+                                                    ))}
+                                                </TableCell>
                                                 <TableCell className="text-center">
                                                     <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
@@ -342,7 +359,7 @@ export default function LoanDetailPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={currencies.filter(c => (loan.amount[c] || 0) > 0).length + 3} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                            <TableCell colSpan={5} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -369,5 +386,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
-    
