@@ -113,40 +113,49 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 export const addLoan = async (
   loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
 ): Promise<string> => {
+    const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
-  const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
+    // Create a mutable copy to clean up undefined fields
+    const newLoan: any = {
+        ...loanData,
+        status: 'active' as const,
+        createdAt: serverTimestamp(),
+        applicationDate: applicationTimestamp,
+    };
 
-  const newLoan = {
-    ...loanData,
-    memberId: loanData.memberId || undefined,
-    status: 'active' as const,
-    createdAt: serverTimestamp(),
-    applicationDate: applicationTimestamp,
-  };
+    // Firestore doesn't allow 'undefined' fields. Clean them up.
+    if (newLoan.memberId === undefined) {
+        delete newLoan.memberId;
+    }
+    if (newLoan.debtorName === undefined) {
+        delete newLoan.debtorName;
+    }
 
-  const docRef = await addDoc(loansCollectionRef, newLoan);
 
-  const actionType =
-    loanData.loanType === 'MURABAHA'
-      ? 'SELL_MURABAHA'
-      : 'QARD_HASAN_GIVE';
+    const docRef = await addDoc(loansCollectionRef, newLoan);
 
-  const profit = currencies.reduce((acc, c) => {
-    acc[c] =
-      (loanData.repaymentAmount[c] || 0) -
-      (loanData.amount[c] || 0);
-    return acc;
-  }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
+    const actionType =
+        loanData.loanType === 'MURABAHA'
+            ? 'SELL_MURABAHA'
+            : 'QARD_HASAN_GIVE';
 
-  await recordUserAction({
-    action: actionType,
-    amount: newLoan.amount,
-    profit: actionType === 'SELL_MURABAHA' ? {...profit, cny:0} : undefined,
-    description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
-    date: loanData.applicationDate, // Use original Date object
-  });
+    const profit = currencies.reduce((acc, c) => {
+        const key = c as keyof Omit<CurrencyValues, 'cny'>;
+        acc[key] =
+            (loanData.repaymentAmount[key] || 0) -
+            (loanData.amount[key] || 0);
+        return acc;
+    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-  return docRef.id;
+    await recordUserAction({
+        action: actionType,
+        amount: { ...newLoan.amount, cny: 0 },
+        profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
+        description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId ? loanData.memberId : loanData.debtorName}`,
+        date: loanData.applicationDate, // Use original Date object
+    });
+
+    return docRef.id;
 };
 
 
@@ -212,7 +221,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: CurrencyValues, paymentDate: Date }) => {
+export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date }) => {
     const totalRepayments = await getLoanRepayments(loan.id);
     const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
     const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
@@ -228,8 +237,8 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
 
     const totalProfitDue = currencies.reduce((acc, c) => {
         const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaid = totalPaidSoFar[c] - principalDue[c];
-        acc[c] = totalProfit - (profitPaid > 0 ? profitPaid : 0);
+        const profitPaidSoFar = currencies.reduce((sum, cur) => sum + (totalPaidSoFar[cur] > (loan.amount[cur] || 0) ? totalPaidSoFar[cur] - (loan.amount[cur] || 0) : 0), 0);
+        acc[c] = totalProfit - profitPaidSoFar;
         if (acc[c] < 0) acc[c] = 0;
         return acc;
     }, { ...initialCurrencyValues });
@@ -257,7 +266,7 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
     });
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: CurrencyValues; date: Date, note?: string}[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string}[]) => {
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
@@ -265,7 +274,7 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
   
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
+    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
     
     batch.set(newRepaymentRef, {
         loanId,
@@ -278,7 +287,7 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
   await batch.commit();
 
   for (const r of repayments) {
-      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
+      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
       await recordLoanPayment({
           loan: loanDoc,
           amount: amountPaid,

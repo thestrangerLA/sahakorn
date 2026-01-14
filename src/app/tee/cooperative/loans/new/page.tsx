@@ -137,9 +137,10 @@ export default function NewLoanPage() {
             loanType: loanType,
             durationYears: loanType === 'QARD_HASAN' ? 0 : durationYears,
         };
+        
+        console.log("loanData to save:", loanData);
 
         try {
-            console.log("loanData to save:", loanData);
             const newLoanId = await addLoan(loanData);
             toast({ title: "ສ້າງຄຳຮ້ອງສິນເຊື່ອສຳເລັດ", description: `ລະຫັດ: ${loanCode}` });
             router.push(`/tee/cooperative/loans/${newLoanId}`);
