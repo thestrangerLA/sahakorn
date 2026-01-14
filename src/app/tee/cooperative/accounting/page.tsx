@@ -304,7 +304,8 @@ export default function CooperativeAccountingPage() {
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={
-                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
+                                    acc.id === 'share_capital' ? () => router.push('/tee/cooperative/members') : undefined
                                 }
                                 href={acc.href}
                             />
@@ -418,14 +419,14 @@ export default function CooperativeAccountingPage() {
                                         return (
                                         <React.Fragment key={entry.transactionGroupId}>
                                             <TableRow>
-                                                <TableCell rowSpan={2}>{format(entry.date, "dd/MM/yyyy")}</TableCell>
-                                                <TableCell rowSpan={2}>{entry.description}</TableCell>
-                                                <TableCell>{debitAccount?.name}</TableCell>
-                                                <TableCell className="text-right text-green-600 font-mono">
+                                                <TableCell rowSpan={2} className="align-top py-2">{format(entry.date, "dd/MM/yyyy")}</TableCell>
+                                                <TableCell rowSpan={2} className="align-top py-2 max-w-xs">{entry.description}</TableCell>
+                                                <TableCell className="py-1">{debitAccount?.name}</TableCell>
+                                                <TableCell className="text-right text-green-600 font-mono py-1">
                                                      {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
                                                 </TableCell>
-                                                <TableCell></TableCell>
-                                                <TableCell rowSpan={2} className="text-center align-middle">
+                                                <TableCell className="py-1"></TableCell>
+                                                <TableCell rowSpan={2} className="text-center align-middle py-2">
                                                     <AlertDialog>
                                                         <AlertDialogTrigger asChild>
                                                             <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
@@ -446,9 +447,9 @@ export default function CooperativeAccountingPage() {
                                                 </TableCell>
                                             </TableRow>
                                             <TableRow>
-                                                <TableCell className="pl-8">{creditAccount?.name}</TableCell>
-                                                <TableCell></TableCell>
-                                                <TableCell className="text-right text-red-600 font-mono">
+                                                <TableCell className="pl-8 py-1">{creditAccount?.name}</TableCell>
+                                                <TableCell className="py-1"></TableCell>
+                                                <TableCell className="text-right text-red-600 font-mono py-1">
                                                      {currencies.map(c => entry.credit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.credit.amount[c])}</div>: null)}
                                                 </TableCell>
                                             </TableRow>
