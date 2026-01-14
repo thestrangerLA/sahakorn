@@ -25,6 +25,8 @@ import { listenToCooperativeDeposits } from '@/services/cooperativeDepositServic
 import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary, CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { cn } from '@/lib/utils';
+import { useClientRouter } from '@/hooks/useClientRouter';
+
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -34,28 +36,36 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances, icon, className, onClick }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void }) => (
-    <Card className={cn("relative", className, onClick && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
-        {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div className="flex items-center gap-2">
-               <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            </div>
-            {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
-        </CardHeader>
-        <CardContent>
-            {currencies.map(c => (
-                (balances?.[c] || 0) !== 0 && (
-                <div key={c} className="text-xs">
-                    <span className="font-semibold uppercase">{c}: </span> 
-                    <span>{formatCurrency(balances[c] || 0)}</span>
+const SummaryCard = ({ title, balances, icon, className, onClick, href }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void, href?: string }) => {
+    const cardContent = (
+         <Card className={cn("relative", className, (onClick || href) && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
+            {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-2">
+                   <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 </div>
-                )
-            ))}
-             {Object.values(balances || {}).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
-        </CardContent>
-    </Card>
-);
+                {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
+            </CardHeader>
+            <CardContent>
+                {currencies.map(c => (
+                    (balances?.[c] || 0) !== 0 && (
+                    <div key={c} className="text-xs">
+                        <span className="font-semibold uppercase">{c}: </span> 
+                        <span>{formatCurrency(balances[c] || 0)}</span>
+                    </div>
+                    )
+                ))}
+                 {Object.values(balances || {}).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
+            </CardContent>
+        </Card>
+    );
+
+     if (href) {
+        return <Link href={href} passHref>{cardContent}</Link>;
+    }
+
+    return cardContent;
+};
 
 const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
@@ -83,6 +93,7 @@ type JournalEntry = {
 
 export default function CooperativeAccountingPage() {
     const { toast } = useToast();
+    const router = useClientRouter();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
@@ -473,5 +484,3 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
-
-    
