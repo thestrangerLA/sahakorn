@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,7 +23,8 @@ import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits } from '@/services/cooperativeDepositService';
-import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary, CooperativeMember, CooperativeDeposit } from '@/lib/types';
+import { listenToCooperativeLoans, listenToAllRepayments } from '@/services/cooperativeLoanService';
+import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary, CooperativeMember, CooperativeDeposit, Loan, LoanRepayment } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { cn } from '@/lib/utils';
 import { useClientRouter } from '@/hooks/useClientRouter';
@@ -37,8 +39,9 @@ const formatCurrency = (value: number) => {
 }
 
 const SummaryCard = ({ title, balances, icon, className, onClick, href }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void, href?: string }) => {
+    const router = useClientRouter();
     const cardContent = (
-         <Card className={cn("relative", className, (onClick || href) && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
+         <Card className={cn("relative", className, (onClick || href) && "cursor-pointer hover:bg-muted/80")} onClick={onClick || (href ? () => router.push(href) : undefined)}>
             {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
@@ -60,7 +63,7 @@ const SummaryCard = ({ title, balances, icon, className, onClick, href }: { titl
         </Card>
     );
 
-     if (href) {
+     if (href && !onClick) {
         return <Link href={href} passHref>{cardContent}</Link>;
     }
 
@@ -71,6 +74,8 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
+    { value: 'PURCHASE_INVENTORY', label: 'ຊື້ສິນຄ້າເຂົ້າສາງ (Purchase Inventory)' },
+    { value: 'SET_INVENTORY_OPENING_BALANCE', label: 'ຕັ້ງຄ່າຍອດສິນຄ້າຄົງເຫຼືອ (Set Inventory)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
@@ -78,16 +83,17 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
     { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
     { value: 'PAY_GENERAL_EXPENSE', label: 'ຈ່າຍຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (Pay General Expense)' },
+    { value: 'ZERO_OUT_OPENING_BALANCE', label: 'ລ້າງຍອດທຶນຍົກມາ (Clear Opening Balance)' },
 ];
 
 
 type JournalEntry = {
-    transactionGroupId: string;
-    date: Date;
-    description: string;
-    userAction?: UserAction;
-    debit: { accountId: string; amount: CurrencyValues };
-    credit: { accountId: string; amount: CurrencyValues };
+  transactionGroupId: string;
+  date: Date;
+  description: string;
+  userAction?: UserAction;
+  debit: { accountId: string; amount: CurrencyValues };
+  credit: { accountId: string; amount: CurrencyValues };
 };
 
 export default function CooperativeAccountingPage() {
@@ -99,6 +105,8 @@ export default function CooperativeAccountingPage() {
     const [summary, setSummary] = useState<AccountSummary | null>(null);
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
+    const [loans, setLoans] = useState<Loan[]>([]);
+    const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -122,11 +130,15 @@ export default function CooperativeAccountingPage() {
         const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
         const unsubscribeMembers = listenToCooperativeMembers(setMembers);
         const unsubscribeDeposits = listenToCooperativeDeposits(setDeposits);
+        const unsubscribeLoans = listenToCooperativeLoans(setLoans, () => {});
+        const unsubscribeRepayments = listenToAllRepayments(setRepayments);
         return () => {
             unsubscribeTxs();
             unsubscribeSummary();
             unsubscribeMembers();
             unsubscribeDeposits();
+            unsubscribeLoans();
+            unsubscribeRepayments();
         };
     }, []);
 
@@ -150,6 +162,24 @@ export default function CooperativeAccountingPage() {
             return total;
         }, { kip: 0, thb: 0, usd: 0, cny: 0 });
     }, [members, deposits]);
+
+    const totalMurabahaReceivable = useMemo(() => {
+        const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const murabahaLoans = loans.filter(l => l.loanType === 'MURABAHA');
+
+        murabahaLoans.forEach(loan => {
+            const loanRepayments = repayments.filter(r => r.loanId === loan.id);
+            currencies.forEach(c => {
+                const totalToRepay = loan.repaymentAmount[c] || 0;
+                const paidForCurrency = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                const outstandingForLoan = totalToRepay - paidForCurrency;
+                if(outstandingForLoan > 0) {
+                    outstanding[c] += outstandingForLoan;
+                }
+            })
+        });
+        return outstanding;
+    }, [loans, repayments]);
 
 
     useEffect(() => {
@@ -295,6 +325,9 @@ export default function CooperativeAccountingPage() {
                              if (acc.id === 'share_capital') {
                                 balances = totalMemberDeposits;
                             }
+                            if (acc.id === 'murabaha_receivable') {
+                                balances = totalMurabahaReceivable;
+                            }
 
                             return (
                             <SummaryCard 
@@ -434,8 +467,8 @@ export default function CooperativeAccountingPage() {
                                             <TableRow>
                                                 <TableCell rowSpan={2} className="align-top py-2">{format(entry.date, "dd/MM/yyyy")}</TableCell>
                                                 <TableCell rowSpan={2} className="align-top py-2 max-w-xs">
-                                                  <div className="font-medium">{actionLabel || entry.description}</div>
-                                                  {actionLabel && <div className="text-xs text-muted-foreground">{entry.description}</div>}
+                                                  <div className="font-medium">{actionLabel}</div>
+                                                  <div className="text-xs text-muted-foreground">{entry.description}</div>
                                                 </TableCell>
                                                 <TableCell className="py-1">{debitAccount?.name}</TableCell>
                                                 <TableCell className="text-right text-green-600 font-mono py-1">
@@ -487,7 +520,7 @@ export default function CooperativeAccountingPage() {
                         {currencies.map(c => (
                             <div key={c} className="grid gap-2">
                                 <Label htmlFor={`bcel-${c}`}>{c.toUpperCase()}</Label>
-                                <Input id={`bcel-${c}`} type="number" value={bcelEditValues[c]} onChange={e => setBcelEditValues(prev => ({...prev, [c]: Number(e.target.value) || 0}))} />
+                                <Input id={`bcel-${c}`} type="number" value={bcelEditValues[c]} onChange={e => setBcelEditValues(prev => prev ? ({...prev, [c]: Number(e.target.value) || 0}) : null )} />
                             </div>
                         ))}
                     </div>
