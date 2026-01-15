@@ -13,7 +13,8 @@ import {
     Timestamp,
     updateDoc,
     deleteDoc,
-    serverTimestamp
+    serverTimestamp,
+    where
 } from 'firebase/firestore';
 
 const summaryDocRef = doc(db, 'central-accountSummary', 'latest');
@@ -59,7 +60,7 @@ export const listenToCentralTransactions = (
     callback: (items: Transaction[]) => void,
     onError?: (error: Error) => void
 ) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, where('date', '!=', null), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -67,7 +68,7 @@ export const listenToCentralTransactions = (
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
+                date: data.date?.toDate?.() ?? new Date(),
                 amount: data.amount || 0
             } as Transaction);
         });

@@ -36,7 +36,7 @@ const getCollectionRefs = (businessType: BusinessType) => {
  */
 export const listenToAllTransactions = (callback: (items: Transaction[]) => void) => {
     const { transactionsCollectionRef } = getCollectionRefs('agriculture');
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, where('date', '!=', null), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -44,7 +44,7 @@ export const listenToAllTransactions = (callback: (items: Transaction[]) => void
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate()
+                date: data.date?.toDate?.() ?? new Date()
             } as Transaction);
         });
         callback(transactions);
@@ -56,7 +56,7 @@ export const listenToAllTransactions = (callback: (items: Transaction[]) => void
 // Transaction Functions
 export const listenToTransactions = (businessType: BusinessType, callback: (items: Transaction[]) => void) => {
     const { transactionsCollectionRef } = getCollectionRefs(businessType);
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, where('date', '!=', null), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -64,7 +64,7 @@ export const listenToTransactions = (businessType: BusinessType, callback: (item
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate() // Convert Firestore Timestamp to JS Date
+                date: data.date?.toDate?.() ?? new Date()
             } as Transaction);
         });
         callback(transactions);

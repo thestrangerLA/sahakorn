@@ -35,6 +35,7 @@ export const listenToCooperativeLoans = (
         where('applicationDate', '!=', null), 
         orderBy('applicationDate', 'desc')
     );
+    let isFirstLoad = true;
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -42,14 +43,17 @@ export const listenToCooperativeLoans = (
             loans.push({ 
                 id: doc.id, 
                 ...data,
-                applicationDate: (data.applicationDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                applicationDate: data.applicationDate?.toDate?.() ?? new Date(),
+                createdAt: data.createdAt?.toDate?.() ?? new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
         callback(loans);
-        onComplete(); // This might be called multiple times on updates. Consider if this is the desired behavior.
+        if (isFirstLoad) {
+            onComplete();
+            isFirstLoad = false;
+        }
     }, (error) => {
         console.error("Error listening to loans:", error);
         onComplete();
@@ -66,8 +70,8 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
             loans.push({ 
                 id: doc.id, 
                 ...data,
-                applicationDate: (data.applicationDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                applicationDate: data.applicationDate?.toDate?.() ?? new Date(),
+                createdAt: data.createdAt?.toDate?.() ?? new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
@@ -95,8 +99,8 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
             callback({
                 id: docSnap.id,
                 ...data,
-                applicationDate: (data.applicationDate as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp).toDate(),
+                applicationDate: data.applicationDate?.toDate?.() ?? new Date(),
+                createdAt: data.createdAt?.toDate?.() ?? new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
@@ -115,8 +119,8 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
         return {
             id: docSnap.id,
             ...data,
-            applicationDate: (data.applicationDate as Timestamp).toDate(),
-            createdAt: (data.createdAt as Timestamp).toDate(),
+            applicationDate: data.applicationDate?.toDate?.() ?? new Date(),
+            createdAt: data.createdAt?.toDate?.() ?? new Date(),
             amount: data.amount || { kip: 0, thb: 0, usd: 0 },
             repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
         } as Loan;
@@ -205,8 +209,8 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
             repayments.push({
                 id: doc.id,
                 ...data,
-                repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                repaymentDate: data.repaymentDate?.toDate?.() ?? new Date(),
+                createdAt: data.createdAt?.toDate?.() ?? new Date(),
                 amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
                 note: data.note || '',
             } as LoanRepayment);
@@ -225,8 +229,8 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
             repayments.push({
                 id: doc.id,
                 ...data,
-                repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                repaymentDate: data.repaymentDate?.toDate?.() ?? new Date(),
+                createdAt: data.createdAt?.toDate?.() ?? new Date(),
                 amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0 },
                 principalPortion: data.principalPortion || { kip: 0, thb: 0, usd: 0 },
                 profitPortion: data.profitPortion || { kip: 0, thb: 0, usd: 0 },
@@ -366,11 +370,9 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
     repayments.push({
       id: doc.id,
       ...data,
-      repaymentDate: (data.repaymentDate as Timestamp).toDate(),
-      createdAt: (data.createdAt as Timestamp).toDate(),
+      repaymentDate: data.repaymentDate?.toDate?.() ?? new Date(),
+      createdAt: data.createdAt?.toDate?.() ?? new Date(),
     } as LoanRepayment);
   });
   return repayments;
 }
-
-    
