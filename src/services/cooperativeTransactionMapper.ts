@@ -22,6 +22,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
   MEMBER_DEPOSIT: 'QARD',
   SET_MEMBER_DEPOSITS: 'CAPITAL',
   MEMBER_WITHDRAW: 'QARD',
+  PURCHASE_INVENTORY: 'SALE',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
@@ -88,11 +89,24 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           notes: 'Withdrawal of Qard - member gets back their original amount'
         }
       };
+      
+    // ═══════════════════════════════════════════════════════════
+    // INVENTORY & MURABAHA (Cost-plus sale with deferred payment)
+    // ═══════════════════════════════════════════════════════════
+    case 'PURCHASE_INVENTORY':
+      // Purchase goods to be held for sale
+      return {
+        debitAccountId: 'inventory',
+        creditAccountId: paymentChannel,
+        contractType,
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: false,
+          requiresContract: false,
+          notes: 'Purchase of goods for resale.'
+        }
+      };
 
-    // ═══════════════════════════════════════════════════════════
-    // MURABAHA (Cost-plus sale with deferred payment)
-    // ═══════════════════════════════════════════════════════════
-    
     case 'SELL_MURABAHA':
       // Sell goods with disclosed markup (profit)
       // At point of sale: Record receivable (cost + profit) and recognize cost
@@ -134,7 +148,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           {
             // Realize the profit portion as income
             debitAccountId: 'deferred_murabaha_income',
-            creditAccountId: 'sales_income', // Realize profit into a proper income account
+            creditAccountId: 'sales_income',
             amountField: 'profit'
           }
         ]

@@ -73,6 +73,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
+    { value: 'PURCHASE_INVENTORY', label: 'ຊື້ສິນຄ້າເຂົ້າສາງ (Purchase Inventory)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
@@ -84,12 +85,12 @@ const userActions: { value: UserAction; label: string }[] = [
 
 
 type JournalEntry = {
-    transactionGroupId: string;
-    date: Date;
-    description: string;
-    userAction?: UserAction;
-    debit: { accountId: string; amount: CurrencyValues };
-    credit: { accountId: string; amount: CurrencyValues };
+  transactionGroupId: string;
+  date: Date;
+  description: string;
+  userAction?: UserAction;
+  debit: { accountId: string; amount: CurrencyValues };
+  credit: { accountId: string; amount: CurrencyValues };
 };
 
 export default function CooperativeAccountingPage() {
@@ -529,3 +530,4 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+

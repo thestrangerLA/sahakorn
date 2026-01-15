@@ -37,6 +37,7 @@ export type UserAction =
   | 'MEMBER_DEPOSIT'
   | 'SET_MEMBER_DEPOSITS'
   | 'MEMBER_WITHDRAW'
+  | 'PURCHASE_INVENTORY'
   | 'SELL_CREDIT'
   | 'COLLECT_RECEIVABLE'
   | 'INVESTMENT_CASH'
@@ -288,7 +289,7 @@ export interface CooperativeInvestment {
   transactionGroupId?: string;
 }
 
-export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
+export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
 
 export interface Loan {
   id: string;
@@ -299,7 +300,7 @@ export interface Loan {
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
-  durationYears: number;
+  durationMonths: number;
   status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;

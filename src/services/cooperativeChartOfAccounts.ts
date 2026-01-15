@@ -7,8 +7,8 @@ export const defaultAccounts: Account[] = [
   { id: 'bank_bcel', code: '1021', name: 'ບັນຊີ BCEL', type: 'asset' },
   { id: 'accounts_receivable', code: '1200', name: 'ລູກໜີ້ການຄ້າ (A/R)', type: 'asset' },
   { id: 'murabaha_receivable', code: '1220', name: 'ລູກໜີ້ການຄ້າກຳໄລ (Murabaha)', type: 'asset', href: '/tee/cooperative/loans' },
-  { id: 'investments', code: '1300', name: 'ສິນຊັບລົງທຶນ (Investments)', type: 'asset', href: '/tee/cooperative/investments' },
   { id: 'inventory', code: '1400', name: 'ສິນຄ້າຄົງເຫຼືອ (Inventory)', type: 'asset' },
+  { id: 'investments', code: '1300', name: 'ສິນຊັບລົງທຶນ (Investments)', type: 'asset', href: '/tee/cooperative/investments' },
   
   // Liabilities
   { id: 'accounts_payable', code: '2010', name: 'ເຈົ້າໜີ້ການຄ້າ (A/P)', type: 'liability' },
