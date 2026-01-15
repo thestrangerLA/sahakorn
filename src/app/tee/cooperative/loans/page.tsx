@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -131,7 +132,9 @@ export default function CooperativeLoansPage() {
             return nameMatch || codeMatch;
         });
 
-        return filteredByNameAndCode.map(loan => {
+        return filteredByNameAndCode
+        .sort((a, b) => a.loanCode.localeCompare(b.loanCode))
+        .map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
             const totalPaid: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
@@ -384,7 +387,7 @@ export default function CooperativeLoansPage() {
                         <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
                             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{loanToDelete?.memberId ? memberMap[loanToDelete.memberId] : loanToDelete?.debtorName}"? 
-                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ และ ບໍ່ສາມາດย้อนกลับໄດ້.
+                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
