@@ -16,25 +16,47 @@ import {
     updateDoc,
     deleteDoc,
     getDocs,
-    writeBatch
+    writeBatch,
+    QueryConstraint
 } from 'firebase/firestore';
 import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
-import { safeOrderBy } from '@/lib/firestoreHelpers';
 import { toDateSafe } from '@/lib/timestamp';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
+// Helper function to sort loans client-side
+function sortLoans(
+    loans: Loan[], 
+    field: 'applicationDate' | 'createdAt' = 'applicationDate', 
+    direction: 'asc' | 'desc' = 'desc'
+): Loan[] {
+    return loans.sort((a, b) => {
+        const dateA = toDateSafe(a[field])?.getTime() ?? 0;
+        const dateB = toDateSafe(b[field])?.getTime() ?? 0;
+        return direction === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+}
+
+// Helper function to sort repayments client-side
+function sortRepayments(
+    repayments: LoanRepayment[], 
+    field: 'repaymentDate' | 'createdAt' = 'repaymentDate', 
+    direction: 'asc' | 'desc' = 'desc'
+): LoanRepayment[] {
+    return repayments.sort((a, b) => {
+        const dateA = toDateSafe(a[field])?.getTime() ?? 0;
+        const dateB = toDateSafe(b[field])?.getTime() ?? 0;
+        return direction === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+}
 
 export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
     onComplete: () => void
 ) => {
-    const q = query(
-        loansCollectionRef, 
-        ...safeOrderBy('applicationDate', 'desc')
-    );
+    const q = query(loansCollectionRef);
     let isFirstLoad = true;
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
@@ -49,7 +71,10 @@ export const listenToCooperativeLoans = (
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
-        callback(loans);
+        
+        const sortedLoans = sortLoans(loans, 'applicationDate', 'desc');
+        callback(sortedLoans);
+
         if (isFirstLoad) {
             onComplete();
             isFirstLoad = false;
@@ -62,7 +87,7 @@ export const listenToCooperativeLoans = (
 };
 
 export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]) => void) => {
-    const q = query(loansCollectionRef, where("memberId", "==", memberId), ...safeOrderBy('applicationDate', 'desc'));
+    const q = query(loansCollectionRef, where("memberId", "==", memberId));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -76,7 +101,8 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
-        callback(loans);
+        const sortedLoans = sortLoans(loans, 'applicationDate', 'desc');
+        callback(sortedLoans);
     });
     return unsubscribe;
 }
@@ -84,12 +110,11 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
 export const getAllCooperativeLoanIds = async (): Promise<{ id: string }[]> => {
     const snapshot = await getDocs(loansCollectionRef);
     const ids = snapshot.docs.map(doc => ({ id: doc.id }));
-     if (ids.length === 0) {
+    if (ids.length === 0) {
       return [{ id: 'default' }];
     }
     return ids;
 };
-
 
 export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
     const docRef = doc(db, 'cooperativeLoans', id);
@@ -147,7 +172,6 @@ export const addLoan = async (
         delete newLoan.debtorName;
     }
 
-
     const docRef = await addDoc(loansCollectionRef, newLoan);
 
     const actionType: UserAction = 'SELL_MURABAHA';
@@ -165,13 +189,12 @@ export const addLoan = async (
         amount: { ...newLoan.amount, cny: 0 },
         profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
         description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
-        date: loanData.applicationDate, // Use original Date object
+        date: loanData.applicationDate,
         loanId: docRef.id
     });
 
     return docRef.id;
 };
-
 
 export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
@@ -190,7 +213,6 @@ export const deleteLoan = async (loanId: string) => {
         batch.delete(doc.ref);
     });
     
-    // Also delete associated accounting entries
     const accountingQuery = query(collection(db, 'cooperative-transactions'), where('loanId', '==', loanId));
     const accountingDocs = await getDocs(accountingQuery);
     accountingDocs.forEach(doc => {
@@ -201,7 +223,7 @@ export const deleteLoan = async (loanId: string) => {
 }
 
 export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) => void) => {
-    const q = query(repaymentsCollectionRef, ...safeOrderBy('repaymentDate', 'desc'));
+    const q = query(repaymentsCollectionRef);
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
@@ -215,7 +237,9 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
                 note: data.note || '',
             } as LoanRepayment);
         });
-        callback(repayments);
+        
+        const sortedRepayments = sortRepayments(repayments, 'repaymentDate', 'desc');
+        callback(sortedRepayments);
     });
     return unsubscribe;
 };
@@ -237,9 +261,9 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 note: data.note || '',
             } as LoanRepayment);
         });
-        // Sort on the client-side
-        repayments.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
-        callback(repayments);
+        
+        const sortedRepayments = sortRepayments(repayments, 'repaymentDate', 'desc');
+        callback(sortedRepayments);
     });
     return unsubscribe;
 };
@@ -337,17 +361,10 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
 
         const repaymentData = repaymentDoc.data() as LoanRepayment;
 
-        // Delete the accounting entries if a transactionGroupId exists
         if (repaymentData.transactionGroupId) {
-            // This function needs to be adapted to use the transaction object
-            // For simplicity, we assume deleteTransactionGroup can be called outside,
-            // or we pass the transaction object to it. Awaiting it here is not ideal inside a transaction.
-            // A better approach would be to get the doc refs inside and pass them to transaction.delete().
-            // But for this fix, we call it separately before deleting the deposit doc.
             await deleteTransactionGroup(repaymentData.transactionGroupId);
         }
 
-        // Delete the repayment document itself
         transaction.delete(repaymentDocRef);
     });
 };
