@@ -15,7 +15,6 @@ export default function CooperativeReportsPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee/cooperative">
                         <ArrowLeft className="h-4 w-4" />
-                        <span className="sr-only">ກັບໄປໜ້າຫຼັກ</span>
                     </Link>
                 </Button>
                 <div className="flex items-center gap-2">
@@ -72,6 +71,22 @@ export default function CooperativeReportsPage() {
                                         <div>
                                             <CardTitle className="text-lg">ການປັນຜົນກຳໄລ</CardTitle>
                                             <CardDescription>ຄິດໄລ່ ແລະ ແບ່ງປັນຜົນກຳໄລໃຫ້ກັບຜູ້ມີສ່ວນຮ່ວມ</CardDescription>
+                                        </div>
+                                    </div>
+                                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                </CardHeader>
+                            </Card>
+                        </Link>
+                        <Link href="/tee/cooperative/accounting/reports/dividend-members">
+                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div className='flex items-center gap-4'>
+                                         <div className="bg-orange-100 p-3 rounded-full">
+                                          <Users className="h-6 w-6 text-orange-600" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg">ລາຍງານການປັນຜົນໃຫ້ສະມາຊິກ</CardTitle>
+                                            <CardDescription>ເບິ່ງລາຍລະອຽດເງິນປັນຜົນຂອງສະມາຊິກແຕ່ລະຄົນ</CardDescription>
                                         </div>
                                     </div>
                                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
