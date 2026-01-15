@@ -20,40 +20,52 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction, updateCooperativeAccountSummary, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
-import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary } from '@/lib/types';
+import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
+import { listenToCooperativeDeposits } from '@/services/cooperativeDepositService';
+import type { Account, Transaction, CurrencyValues, UserAction, AccountSummary, CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { cn } from '@/lib/utils';
+import { useClientRouter } from '@/hooks/useClientRouter';
 
-const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, balances, icon, className, onClick }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void }) => (
-    <Card className={cn("relative", className, onClick && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
-        {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div className="flex items-center gap-2">
-               <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            </div>
-            {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
-        </CardHeader>
-        <CardContent>
-            {currencies.map(c => (
-                (balances?.[c] || 0) !== 0 && (
-                <div key={c} className="text-xs">
-                    <span className="font-semibold uppercase">{c}: </span> 
-                    <span>{formatCurrency(balances[c] || 0)}</span>
+const SummaryCard = ({ title, balances, icon, className, onClick, href }: { title: string, balances: CurrencyValues, icon?: React.ReactNode, className?: string, onClick?: () => void, href?: string }) => {
+    const cardContent = (
+         <Card className={cn("relative", className, (onClick || href) && "cursor-pointer hover:bg-muted/80")} onClick={onClick}>
+            {onClick && <Pencil className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-2">
+                   <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 </div>
-                )
-            ))}
-             {Object.values(balances || {}).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
-        </CardContent>
-    </Card>
-);
+                {icon || <Scale className="h-4 w-4 text-muted-foreground" />}
+            </CardHeader>
+            <CardContent>
+                {currencies.map(c => (
+                    (balances?.[c] || 0) !== 0 && (
+                    <div key={c} className="text-xs">
+                        <span className="font-semibold uppercase">{c}: </span> 
+                        <span>{formatCurrency(balances[c] || 0)}</span>
+                    </div>
+                    )
+                ))}
+                 {Object.values(balances || {}).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
+            </CardContent>
+        </Card>
+    );
+
+     if (href) {
+        return <Link href={href} passHref>{cardContent}</Link>;
+    }
+
+    return cardContent;
+};
 
 const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
@@ -61,8 +73,6 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
-    { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
-    { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
@@ -75,23 +85,28 @@ type JournalEntry = {
     transactionGroupId: string;
     date: Date;
     description: string;
+    userAction?: UserAction;
     debit: { accountId: string; amount: CurrencyValues };
     credit: { accountId: string; amount: CurrencyValues };
 };
 
 export default function CooperativeAccountingPage() {
     const { toast } = useToast();
+    const router = useClientRouter();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
     const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
     const [summary, setSummary] = useState<AccountSummary | null>(null);
+    const [members, setMembers] = useState<CooperativeMember[]>([]);
+    const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
-    const [amount, setAmount] = useState<Omit<CurrencyValues, 'cny'>>({ kip: 0, thb: 0, usd: 0 });
-    const [profitAmount, setProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ kip: 0, thb: 0, usd: 0 });
+    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [profitAmount, setProfitAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
     const [selectedAction, setSelectedAction] = useState<UserAction | undefined>();
+    const [paymentChannel, setPaymentChannel] = useState<'cash' | 'bank_bcel'>('cash');
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -100,14 +115,18 @@ export default function CooperativeAccountingPage() {
 
     // Edit BCEL Dialog State
     const [isEditBcelOpen, setEditBcelOpen] = useState(false);
-    const [bcelEditValues, setBcelEditValues] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
+    const [bcelEditValues, setBcelEditValues] = useState<CurrencyValues>({ ...initialCurrencyValues });
 
     useEffect(() => {
-        const unsubscribe = listenToCooperativeTransactions(setTransactions);
+        const unsubscribeTxs = listenToCooperativeTransactions(setTransactions);
         const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
+        const unsubscribeMembers = listenToCooperativeMembers(setMembers);
+        const unsubscribeDeposits = listenToCooperativeDeposits(setDeposits);
         return () => {
-            unsubscribe();
+            unsubscribeTxs();
             unsubscribeSummary();
+            unsubscribeMembers();
+            unsubscribeDeposits();
         };
     }, []);
 
@@ -116,13 +135,30 @@ export default function CooperativeAccountingPage() {
         setAccountBalances(balances);
     }, [transactions]);
     
+    const totalMemberDeposits = useMemo(() => {
+        return members.reduce((total, member) => {
+            const memberDeposits = deposits.filter(d => d.memberId === member.id);
+            const currentTotal: CurrencyValues = {
+                kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
+                thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
+                usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
+                cny: 0
+            };
+            total.kip += currentTotal.kip;
+            total.thb += currentTotal.thb;
+            total.usd += currentTotal.usd;
+            return total;
+        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+    }, [members, deposits]);
+
+
     useEffect(() => {
         if(summary?.bankAccount){
             setBcelEditValues(summary.bankAccount);
         }
     }, [summary?.bankAccount, isEditBcelOpen]);
 
-    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<Omit<CurrencyValues, 'cny'>>>, currency: keyof Omit<CurrencyValues, 'cny'>, value: string) => {
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
         stateSetter(prev => ({ ...prev, [currency]: Number(value) || 0 }));
     }
 
@@ -133,8 +169,9 @@ export default function CooperativeAccountingPage() {
                     transactionGroupId: tx.transactionGroupId,
                     date: tx.date,
                     description: tx.description,
-                    debit: { accountId: '', amount: { ...initialCurrencyValues, cny:0 } },
-                    credit: { accountId: '', amount: { ...initialCurrencyValues, cny:0 } }
+                    userAction: tx.userAction,
+                    debit: { accountId: '', amount: { ...initialCurrencyValues } },
+                    credit: { accountId: '', amount: { ...initialCurrencyValues } }
                 };
             }
             if (tx.type === 'debit') {
@@ -184,18 +221,20 @@ export default function CooperativeAccountingPage() {
         try {
             await recordUserAction({
                 action: selectedAction,
-                amount: {...amount, cny: 0},
-                profit: selectedAction === 'SELL_MURABAHA' ? {...profitAmount, cny: 0} : undefined,
+                amount,
+                profit: selectedAction === 'SELL_MURABAHA' ? profitAmount : undefined,
                 description,
-                date
+                date,
+                paymentChannel
             });
             toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
             // Reset form
             setDate(new Date());
             setDescription('');
             setSelectedAction(undefined);
-            setAmount({ kip: 0, thb: 0, usd: 0 });
-            setProfitAmount({ kip: 0, thb: 0, usd: 0 });
+            setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setProfitAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setPaymentChannel('cash');
 
         } catch (error) {
             console.error("Error adding transaction:", error);
@@ -216,7 +255,7 @@ export default function CooperativeAccountingPage() {
 
     const handleSaveBcel = async () => {
         try {
-            await updateCooperativeAccountSummary({ bankAccount: {...bcelEditValues, cny:0 } });
+            await updateCooperativeAccountSummary({ bankAccount: bcelEditValues });
             toast({ title: "ອັບເດດຍອດບັນຊີ BCEL ສຳເລັດ" });
             setEditBcelOpen(false);
         } catch (error) {
@@ -249,10 +288,14 @@ export default function CooperativeAccountingPage() {
                     {accounts
                         .filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity')))
                         .map(acc => {
-                            let balances = accountBalances[acc.id] || { ...initialCurrencyValues, cny: 0 };
-                            if (acc.id === 'bank_bcel') {
-                                balances = summary?.bankAccount || { ...initialCurrencyValues, cny: 0 };
+                            let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
+                            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
+                                balances = summary.bankAccount;
                             }
+                             if (acc.id === 'share_capital') {
+                                balances = totalMemberDeposits;
+                            }
+
                             return (
                             <SummaryCard 
                                 key={acc.id} 
@@ -263,7 +306,11 @@ export default function CooperativeAccountingPage() {
                                     acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
-                                onClick={acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined}
+                                onClick={
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
+                                    acc.href ? () => router.push(acc.href!) : undefined
+                                }
+                                href={acc.href}
                             />
                         )})
                     }
@@ -281,6 +328,16 @@ export default function CooperativeAccountingPage() {
                                     <Select value={selectedAction} onValueChange={(v) => setSelectedAction(v as UserAction)}>
                                         <SelectTrigger><SelectValue placeholder="ເລືອກເຫດການທີ່ເກີດຂຶ້ນ..." /></SelectTrigger>
                                         <SelectContent>{userActions.map(action => <SelectItem key={action.value} value={action.value}>{action.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                 <div className="grid gap-2">
+                                    <Label>ຊ່ອງທາງການຊຳລະ</Label>
+                                    <Select value={paymentChannel} onValueChange={(v) => setPaymentChannel(v as 'cash' | 'bank_bcel')}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="cash">ເງິນສົດ (Cash)</SelectItem>
+                                            <SelectItem value="bank_bcel">ບັນຊີ BCEL</SelectItem>
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="grid gap-2">
@@ -306,6 +363,7 @@ export default function CooperativeAccountingPage() {
                                       <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange(setAmount, 'kip', e.target.value)} /></div>
                                       <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange(setAmount, 'thb', e.target.value)} /></div>
                                       <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange(setAmount, 'usd', e.target.value)} /></div>
+                                      <div><Label className="text-xs">CNY</Label><Input type="number" value={amount.cny || ''} onChange={e => handleAmountChange(setAmount, 'cny', e.target.value)} /></div>
                                   </div>
                                 </div>
                                 
@@ -316,6 +374,7 @@ export default function CooperativeAccountingPage() {
                                           <div><Label className="text-xs">KIP</Label><Input type="number" value={profitAmount.kip || ''} onChange={e => handleAmountChange(setProfitAmount, 'kip', e.target.value)} /></div>
                                           <div><Label className="text-xs">THB</Label><Input type="number" value={profitAmount.thb || ''} onChange={e => handleAmountChange(setProfitAmount, 'thb', e.target.value)} /></div>
                                           <div><Label className="text-xs">USD</Label><Input type="number" value={profitAmount.usd || ''} onChange={e => handleAmountChange(setProfitAmount, 'usd', e.target.value)} /></div>
+                                          <div><Label className="text-xs">CNY</Label><Input type="number" value={profitAmount.cny || ''} onChange={e => handleAmountChange(setProfitAmount, 'cny', e.target.value)} /></div>
                                       </div>
                                     </div>
                                 )}
@@ -370,17 +429,21 @@ export default function CooperativeAccountingPage() {
                                     {journalEntries.map(entry => {
                                         const debitAccount = accounts.find(a => a.id === entry.debit.accountId);
                                         const creditAccount = accounts.find(a => a.id === entry.credit.accountId);
+                                        const actionLabel = userActions.find(a => a.value === entry.userAction)?.label;
                                         return (
                                         <React.Fragment key={entry.transactionGroupId}>
                                             <TableRow>
-                                                <TableCell rowSpan={2}>{format(entry.date, "dd/MM/yyyy")}</TableCell>
-                                                <TableCell rowSpan={2}>{entry.description}</TableCell>
-                                                <TableCell>{debitAccount?.name}</TableCell>
-                                                <TableCell className="text-right text-green-600 font-mono">
+                                                <TableCell rowSpan={2} className="align-top py-2">{format(entry.date, "dd/MM/yyyy")}</TableCell>
+                                                <TableCell rowSpan={2} className="align-top py-2 max-w-xs">
+                                                  <div className="font-medium">{actionLabel || entry.description}</div>
+                                                  {actionLabel && <div className="text-xs text-muted-foreground">{entry.description}</div>}
+                                                </TableCell>
+                                                <TableCell className="py-1">{debitAccount?.name}</TableCell>
+                                                <TableCell className="text-right text-green-600 font-mono py-1">
                                                      {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
                                                 </TableCell>
-                                                <TableCell></TableCell>
-                                                <TableCell rowSpan={2} className="text-center align-middle">
+                                                <TableCell className="py-1"></TableCell>
+                                                <TableCell rowSpan={2} className="text-center align-middle py-2">
                                                     <AlertDialog>
                                                         <AlertDialogTrigger asChild>
                                                             <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button>
@@ -401,9 +464,9 @@ export default function CooperativeAccountingPage() {
                                                 </TableCell>
                                             </TableRow>
                                             <TableRow>
-                                                <TableCell className="pl-8">{creditAccount?.name}</TableCell>
-                                                <TableCell></TableCell>
-                                                <TableCell className="text-right text-red-600 font-mono">
+                                                <TableCell className="pl-8 py-1">{creditAccount?.name}</TableCell>
+                                                <TableCell className="py-1"></TableCell>
+                                                <TableCell className="text-right text-red-600 font-mono py-1">
                                                      {currencies.map(c => entry.credit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.credit.amount[c])}</div>: null)}
                                                 </TableCell>
                                             </TableRow>

@@ -145,35 +145,9 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     // ═══════════════════════════════════════════════════════════
     // QARD HASAN (Benevolent loan - gives to borrower, no benefit)
     // ═══════════════════════════════════════════════════════════
-    
     case 'QARD_HASAN_GIVE':
-      // Give interest-free loan to member
-      // The cooperative receives ZERO profit from this
-      return {
-        debitAccountId: 'qard_hasan_receivable',
-        creditAccountId: paymentChannel,
-        contractType,
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: true,
-          requiresContract: true,
-          notes: 'Qard Hasan - Benevolent loan with NO profit, NO markup, NO interest. Borrower returns exact amount borrowed.'
-        }
-      };
-
     case 'QARD_HASAN_RECEIVE':
-      // Receive repayment of qard hasan loan
-      return {
-        debitAccountId: paymentChannel,
-        creditAccountId: 'qard_hasan_receivable',
-        contractType,
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: false,
-          requiresContract: false,
-          notes: 'Qard Hasan repayment - Full amount received, no extra charges for delay'
-        }
-      };
+      throw new Error("Qard Hasan (interest-free loan) functionality has been removed.");
 
     // ═══════════════════════════════════════════════════════════
     // NORMAL SALES (Cash or Credit)
