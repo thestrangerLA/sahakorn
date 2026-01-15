@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -187,6 +186,27 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         return () => unsubscribe();
     }, [calculationId, isClient]);
     
+    const deepCopyAndConvertDates = (obj: any) => {
+        if (obj === null || typeof obj !== 'object') {
+            return obj;
+        }
+
+        if (obj instanceof Date) {
+            return Timestamp.fromDate(obj);
+        }
+        
+        if (Array.isArray(obj)) {
+            return obj.map(deepCopyAndConvertDates);
+        }
+
+        const newObj: { [key: string]: any } = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                newObj[key] = deepCopyAndConvertDates(obj[key]);
+            }
+        }
+        return newObj;
+    };
     
     const handleDataChange = useCallback(async () => {
         if (!calculationId || loading) return;
@@ -195,9 +215,9 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         const calculationDocRef = doc(firestore, 'tourCalculations', calculationId);
 
         const dataToSave: Partial<SavedCalculation> = {
-            tourInfo: JSON.parse(JSON.stringify(tourInfo)),
-            allCosts: JSON.parse(JSON.stringify(allCosts)),
-            exchangeRates: JSON.parse(JSON.stringify(exchangeRates)),
+            tourInfo: deepCopyAndConvertDates(tourInfo),
+            allCosts: deepCopyAndConvertDates(allCosts),
+            exchangeRates: exchangeRates,
             profitPercentage: profitPercentage,
             savedAt: serverTimestamp(),
         };
@@ -537,7 +557,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0">
-                                                    <Calendar mode="single" selected={startDate} onSelect={date => setTourInfo({...tourInfo, startDate: date?.toISOString()})} initialFocus locale={th} />
+                                                    <Calendar mode="single" selected={startDate} onSelect={date => setTourInfo({...tourInfo, startDate: date})} initialFocus locale={th} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -550,7 +570,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0">
-                                                    <Calendar mode="single" selected={endDate} onSelect={date => setTourInfo({...tourInfo, endDate: date?.toISOString()})} initialFocus locale={th} />
+                                                    <Calendar mode="single" selected={endDate} onSelect={date => setTourInfo({...tourInfo, endDate: date})} initialFocus locale={th} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -622,7 +642,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                         </Button>
                                                                     </PopoverTrigger>
                                                                     <PopoverContent className="w-auto p-0">
-                                                                        <Calendar mode="single" selected={toDate(acc.checkInDate)} onSelect={(date) => updateItem('accommodations', acc.id, 'checkInDate', date?.toISOString())} initialFocus />
+                                                                        <Calendar mode="single" selected={toDate(acc.checkInDate)} onSelect={(date) => updateItem('accommodations', acc.id, 'checkInDate', date)} initialFocus />
                                                                     </PopoverContent>
                                                                 </Popover>
                                                             </div>
@@ -783,7 +803,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0">
-                                                                            <Calendar mode="single" selected={toDate(flight.departureDate)} onSelect={(date) => updateItem('flights', flight.id, 'departureDate', date?.toISOString())} initialFocus />
+                                                                            <Calendar mode="single" selected={toDate(flight.departureDate)} onSelect={(date) => updateItem('flights', flight.id, 'departureDate', date)} initialFocus />
                                                                         </PopoverContent>
                                                                     </Popover>
                                                                     <div className="relative">
@@ -857,7 +877,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0">
-                                                                            <Calendar mode="single" selected={toDate(ticket.departureDate)} onSelect={(date) => updateItem('trainTickets', ticket.id, 'departureDate', date?.toISOString())} initialFocus />
+                                                                            <Calendar mode="single" selected={toDate(ticket.departureDate)} onSelect={(date) => updateItem('trainTickets', ticket.id, 'departureDate', date)} initialFocus />
                                                                         </PopoverContent>
                                                                     </Popover>
                                                                     <div className="relative">
@@ -1226,5 +1246,3 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         </div>
     );
 }
-
-    
