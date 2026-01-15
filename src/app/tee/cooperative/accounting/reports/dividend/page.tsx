@@ -6,18 +6,18 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Printer, Trash2, PlusCircle, Save } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Printer, Trash2, PlusCircle, Save, ChevronDown } from "lucide-react";
 import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
 import { getYear, format, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -40,8 +40,7 @@ type DividendItem = { id: string; name: string; percentage: number };
 export default function DividendPage() {
     const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [startDate, setStartDate] = useState<Date | undefined>(startOfYear(new Date()));
-    const [endDate, setEndDate] = useState<Date | undefined>(endOfYear(new Date()));
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [dividendStructure, setDividendStructure] = useState<DividendItem[]>(initialDividendStructure);
 
     useEffect(() => {
@@ -49,9 +48,19 @@ export default function DividendPage() {
         return () => unsubscribe();
     }, []);
 
+    const availableYears = useMemo(() => {
+        const years = new Set(transactions.map(t => getYear(t.date)));
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
+        return Array.from(years).sort((a, b) => b - a);
+    }, [transactions]);
+
     const netProfit = useMemo(() => {
+        const yearDate = new Date(selectedYear, 0, 1);
+        const startDate = startOfYear(yearDate);
+        const endDate = endOfYear(yearDate);
+
         const filteredTransactions = transactions.filter(tx => {
-            if (!startDate || !endDate) return true;
             return isWithinInterval(tx.date, { start: startDate, end: endDate });
         });
 
@@ -78,7 +87,7 @@ export default function DividendPage() {
             acc[c] = totalIncome[c] - totalExpense[c];
             return acc;
         }, { ...initialCurrencyValues });
-    }, [transactions, startDate, endDate]);
+    }, [transactions, selectedYear]);
 
     const totalPercentage = useMemo(() => {
         return dividendStructure.reduce((sum, item) => sum + (item.percentage || 0), 0);
@@ -125,28 +134,22 @@ export default function DividendPage() {
                         <CardTitle>ໂຕກອງ</CardTitle>
                         <CardContent className="flex flex-col md:flex-row md:items-end gap-4 pt-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="start-date">ວັນທີເລີ່ມຕົ້ນ</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button id="start-date" variant={"outline"} className="w-[200px] justify-start text-left font-normal">
+                                <Label htmlFor="year-selector">ເລືອກປີ</Label>
+                                 <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button id="year-selector" variant="outline" className="w-[200px] justify-start text-left font-normal">
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {startDate ? format(startDate, "dd/MM/yyyy") : <span>ເລືອກ</span>}
+                                            {selectedYear ? `ປີ ${selectedYear + 543}` : 'ເລືອກປີ'}
                                         </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus /></PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="end-date">ວັນທີສິ້ນສຸດ</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button id="end-date" variant={"outline"} className="w-[200px] justify-start text-left font-normal">
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {endDate ? format(endDate, "dd/MM/yyyy") : <span>ເລືອກ</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus /></PopoverContent>
-                                </Popover>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        {availableYears.map(year => (
+                                            <DropdownMenuItem key={year} onSelect={() => setSelectedYear(year)}>
+                                                {year + 543}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </CardContent>
                     </CardHeader>
@@ -155,7 +158,7 @@ export default function DividendPage() {
                     <CardHeader>
                         <CardTitle>ການປັນຜົນ</CardTitle>
                          <CardDescription>
-                            ກຳໄລສຸດທິຈາກ {startDate ? format(startDate, "PPP") : '...'} ຫາ {endDate ? format(endDate, "PPP") : '...'}
+                            ກຳໄລສຸດທິຂອງປີ {selectedYear + 543}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -234,3 +237,4 @@ export default function DividendPage() {
         </div>
     );
 }
+
