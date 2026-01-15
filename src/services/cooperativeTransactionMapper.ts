@@ -66,7 +66,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     case 'SET_MEMBER_DEPOSITS':
       // Initialize opening balance for member deposits
       return {
-        debitAccountId: 'retained_earnings',
+        debitAccountId: 'opening_balance_equity',
         creditAccountId: 'deposits_liability',
         contractType,
         shariahCompliance: {
@@ -226,7 +226,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     case 'SET_CASH_OPENING_BALANCE':
       return {
         debitAccountId: 'cash',
-        creditAccountId: 'retained_earnings',
+        creditAccountId: 'opening_balance_equity',
         contractType: 'CAPITAL',
         shariahCompliance: {
           isRibaFree: true,
