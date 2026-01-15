@@ -30,6 +30,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
   SELL_MURABAHA: 'MURABAHA',
   COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
   PAY_GENERAL_EXPENSE: 'SALE',
+  SET_CASH_OPENING_BALANCE: 'CAPITAL',
 };
 
 /**
@@ -65,7 +66,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     case 'SET_MEMBER_DEPOSITS':
       // Initialize opening balance for member deposits
       return {
-        debitAccountId: 'retained_earnings', // Changed from opening_balance_equity
+        debitAccountId: 'retained_earnings',
         creditAccountId: 'deposits_liability',
         contractType,
         shariahCompliance: {
@@ -100,7 +101,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       // Profit is deferred until payment is received
       return {
         debitAccountId: 'murabaha_receivable',
-        creditAccountId: 'cost_of_goods', // This should be inventory, but inventory is removed. COGS is a placeholder.
+        creditAccountId: 'cost_of_goods', 
         contractType,
         shariahCompliance: {
           isRibaFree: true,
@@ -206,7 +207,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
       
     // ═══════════════════════════════════════════════════════════
-    // GENERAL EXPENSES
+    // GENERAL EXPENSES & EQUITY ADJUSTMENTS
     // ═══════════════════════════════════════════════════════════
     
     case 'PAY_GENERAL_EXPENSE':
@@ -219,6 +220,19 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           requiresApproval: false,
           requiresContract: false,
           notes: 'General operational expense.'
+        }
+      };
+
+    case 'SET_CASH_OPENING_BALANCE':
+      return {
+        debitAccountId: 'cash',
+        creditAccountId: 'retained_earnings',
+        contractType: 'CAPITAL',
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: true,
+          requiresContract: false,
+          notes: 'Setting the opening cash balance.'
         }
       };
 
