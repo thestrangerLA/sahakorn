@@ -46,7 +46,12 @@ export default function CooperativeFixedAssetsPage() {
     }, [fixedAssetTransactions]);
 
     const totalCurrentValue = useMemo(() => {
-        return fixedAssetTransactions.reduce((sum, tx) => sum + (tx.currentValue || 0), 0);
+        return fixedAssetTransactions.reduce((acc, tx) => {
+            currencies.forEach(c => {
+                acc[c] += tx.currentValue?.[c] || 0;
+            });
+            return acc;
+        }, { ...initialCurrencyValues });
     }, [fixedAssetTransactions]);
 
     const handleDelete = async (transactionGroupId: string | undefined) => {
@@ -62,10 +67,19 @@ export default function CooperativeFixedAssetsPage() {
         }
     }
 
-    const handleCurrentValueChange = async (id: string, value: string) => {
+    const handleCurrentValueChange = async (id: string, currency: keyof CurrencyValues, value: string) => {
         const numericValue = Number(value) || 0;
+        
+        const txToUpdate = transactions.find(t => t.id === id);
+        if (!txToUpdate) return;
+        
+        const updatedCurrentValue = {
+            ...(txToUpdate.currentValue || initialCurrencyValues),
+            [currency]: numericValue,
+        };
+
         try {
-            await updateCooperativeTransaction(id, { currentValue: numericValue });
+            await updateCooperativeTransaction(id, { currentValue: updatedCurrentValue });
             // No toast for this to avoid being noisy
         } catch (error) {
             toast({ title: 'Error updating current value', variant: 'destructive' });
@@ -95,14 +109,15 @@ export default function CooperativeFixedAssetsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>ວັນທີ</TableHead>
-                                    <TableHead>ລາຍລະອຽດ</TableHead>
-                                    <TableHead className="text-right">ມູນຄ່າ (KIP)</TableHead>
-                                    <TableHead className="text-right">ມູນຄ່າ (THB)</TableHead>
-                                    <TableHead className="text-right">ມູນຄ່າ (USD)</TableHead>
-                                    <TableHead className="text-right">ມູນຄ່າ (CNY)</TableHead>
-                                    <TableHead className="text-right">ມູນຄ່າປັດຈຸບັນ (KIP)</TableHead>
-                                    <TableHead><span className="sr-only">Actions</span></TableHead>
+                                    <TableHead rowSpan={2} className="align-bottom">ວັນທີ</TableHead>
+                                    <TableHead rowSpan={2} className="align-bottom">ລາຍລະອຽດ</TableHead>
+                                    <TableHead colSpan={4} className="text-center border-b">ມູນຄ່າຊື້</TableHead>
+                                    <TableHead colSpan={4} className="text-center border-b">ມູນຄ່າປັດຈຸບັນ</TableHead>
+                                    <TableHead rowSpan={2} className="align-bottom"><span className="sr-only">Actions</span></TableHead>
+                                </TableRow>
+                                <TableRow>
+                                    {currencies.map(c => <TableHead key={`cost-${c}`} className="text-right uppercase">{c}</TableHead>)}
+                                    {currencies.map(c => <TableHead key={`current-${c}`} className="text-right uppercase">{c}</TableHead>)}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -111,18 +126,19 @@ export default function CooperativeFixedAssetsPage() {
                                         <TableRow key={tx.id}>
                                             <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
                                             <TableCell className="font-medium">{tx.description}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(tx.amount.kip)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(tx.amount.thb)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(tx.amount.usd)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(tx.amount.cny)}</TableCell>
-                                            <TableCell className="text-right font-mono p-1">
-                                                <Input 
-                                                    type="number" 
-                                                    defaultValue={tx.currentValue}
-                                                    onBlur={(e) => handleCurrentValueChange(tx.id, e.target.value)}
-                                                    className="h-8 text-right"
-                                                />
-                                            </TableCell>
+                                            {currencies.map(c => (
+                                                 <TableCell key={`cost-val-${c}`} className="text-right font-mono">{formatCurrency(tx.amount[c])}</TableCell>
+                                            ))}
+                                            {currencies.map(c => (
+                                                <TableCell key={`current-val-${c}`} className="text-right font-mono p-1">
+                                                    <Input 
+                                                        type="number" 
+                                                        defaultValue={tx.currentValue?.[c] || 0}
+                                                        onBlur={(e) => handleCurrentValueChange(tx.id, c, e.target.value)}
+                                                        className="h-8 text-right"
+                                                    />
+                                                </TableCell>
+                                            ))}
                                             <TableCell className="text-right">
                                                  <AlertDialog>
                                                     <AlertDialogTrigger asChild>
@@ -146,18 +162,15 @@ export default function CooperativeFixedAssetsPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center h-24">ບໍ່ມີລາຍການສິນຊັບຄົງທີ່</TableCell>
+                                        <TableCell colSpan={11} className="text-center h-24">ບໍ່ມີລາຍການສິນຊັບຄົງທີ່</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="font-bold text-lg bg-muted">
                                     <TableCell colSpan={2}>ມູນຄ່າລວມທັງໝົດ</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(totalAssets.kip)}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(totalAssets.thb)}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(totalAssets.usd)}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(totalAssets.cny)}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(totalCurrentValue)}</TableCell>
+                                    {currencies.map(c => <TableCell key={`total-cost-${c}`} className="text-right">{formatCurrency(totalAssets[c])}</TableCell>)}
+                                    {currencies.map(c => <TableCell key={`total-current-${c}`} className="text-right">{formatCurrency(totalCurrentValue[c])}</TableCell>)}
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableFooter>

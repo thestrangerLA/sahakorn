@@ -1,4 +1,5 @@
 
+
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
@@ -12,7 +13,7 @@ const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 }
 
 const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' > = {
     capital: { ...initialCurrencyValues },
-    cash: { ...initialCurrencyValues },
+    cash: { kip: 500000000, thb: 10000, usd: 500, cny: 0 },
     transfer: { ...initialCurrencyValues },
     bankAccount: { ...initialCurrencyValues },
 };
@@ -192,6 +193,7 @@ export const listenToCooperativeTransactions = (
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                currentValue: data.currentValue || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Transaction);
         });
         callback(transactions);

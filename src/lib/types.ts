@@ -66,7 +66,7 @@ export interface Transaction {
   userAction?: UserAction;
   contractType?: ContractType;
   systemGenerated?: boolean;
-  currentValue?: number;
+  currentValue?: CurrencyValues;
   [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
 }
 
