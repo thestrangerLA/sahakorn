@@ -307,8 +307,7 @@ export default function CooperativeAccountingPage() {
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={
-                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
-                                    acc.href ? () => router.push(acc.href!) : undefined
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
                                 }
                                 href={acc.href}
                             />
