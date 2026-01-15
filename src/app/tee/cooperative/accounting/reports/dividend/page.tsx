@@ -26,12 +26,9 @@ const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 const initialDividendStructure = [
-    { id: '1', name: 'ບໍລິສັດ', percentage: 0.30 },
-    { id: '2', name: 'xiuge', percentage: 0.10 },
-    { id: '3', name: 'wenyan', percentage: 0.10 },
-    { id: '4', name: 'ການຕະຫຼາດ', percentage: 0.15 },
-    { id: '5', name: 'CEO', percentage: 0.30 },
-    { id: '6', name: 'ບັນຊີ', percentage: 0.05 },
+    { id: '1', name: 'ສະມາຊິກ', percentage: 0.40 },
+    { id: '2', name: 'ສະຫະກອນ', percentage: 0.40 },
+    { id: '3', name: 'ງານສັງຄົມ', percentage: 0.20 },
 ];
 
 const formatCurrency = (value: number) => {
