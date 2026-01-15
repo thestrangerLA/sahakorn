@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building, Landmark, Wallet } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building, Landmark, Wallet, MinusCircle } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -211,6 +211,17 @@ export default function CooperativeAccountingPage() {
         return total;
     }, [accountBalances, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
 
+    const cashVsBankDifference = useMemo(() => {
+        const cashBalances = accountBalances['cash'] || { ...initialCurrencyValues };
+        const bankBalances = summary?.bankAccount || { ...initialCurrencyValues };
+        
+        const difference: CurrencyValues = { ...initialCurrencyValues };
+        currencies.forEach(c => {
+            difference[c] = (cashBalances[c] || 0) - (bankBalances[c] || 0);
+        });
+        return difference;
+    }, [accountBalances, summary?.bankAccount]);
+
 
     useEffect(() => {
         if(summary?.bankAccount){
@@ -344,7 +355,7 @@ export default function CooperativeAccountingPage() {
                 </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-10">
                     <div className="xl:col-span-2">
                         <SummaryCard 
                             title="ລວມສິນຊັບທັງໝົດ" 
@@ -353,6 +364,12 @@ export default function CooperativeAccountingPage() {
                             className="bg-green-50 border-green-200"
                         />
                     </div>
+                     <SummaryCard 
+                        title="ສ່ວນຕ່າງ (ເງິນສົດ - BCEL)" 
+                        balances={cashVsBankDifference} 
+                        icon={<MinusCircle className="h-4 w-4 text-indigo-500" />}
+                        className="bg-indigo-50 border-indigo-200"
+                    />
                     {accounts
                         .filter(a => a.type === 'asset' || a.id === 'share_capital')
                         .map(acc => {
