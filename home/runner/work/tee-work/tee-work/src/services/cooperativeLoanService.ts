@@ -26,7 +26,7 @@ const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
-// Helper function to create a query
+// Helper function for creating queries
 function createOrderByQuery(
     collectionRef: any,
     constraints: QueryConstraint[]
@@ -35,7 +35,11 @@ function createOrderByQuery(
 }
 
 // Helper function to sort loans client-side
-function sortLoans(loans: Loan[], field: 'applicationDate' | 'createdAt' = 'applicationDate', direction: 'asc' | 'desc' = 'desc'): Loan[] {
+function sortLoans(
+    loans: Loan[], 
+    field: 'applicationDate' | 'createdAt' = 'applicationDate', 
+    direction: 'asc' | 'desc' = 'desc'
+): Loan[] {
     return loans.sort((a, b) => {
         const dateA = toDateSafe(a[field])?.getTime() ?? 0;
         const dateB = toDateSafe(b[field])?.getTime() ?? 0;
@@ -44,7 +48,11 @@ function sortLoans(loans: Loan[], field: 'applicationDate' | 'createdAt' = 'appl
 }
 
 // Helper function to sort repayments client-side
-function sortRepayments(repayments: LoanRepayment[], field: 'repaymentDate' | 'createdAt' = 'repaymentDate', direction: 'asc' | 'desc' = 'desc'): LoanRepayment[] {
+function sortRepayments(
+    repayments: LoanRepayment[], 
+    field: 'repaymentDate' | 'createdAt' = 'repaymentDate', 
+    direction: 'asc' | 'desc' = 'desc'
+): LoanRepayment[] {
     return repayments.sort((a, b) => {
         const dateA = toDateSafe(a[field])?.getTime() ?? 0;
         const dateB = toDateSafe(b[field])?.getTime() ?? 0;
@@ -56,7 +64,7 @@ export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
     onComplete: () => void
 ) => {
-    const q = createOrderByQuery(loansCollectionRef, []);
+    const q = query(loansCollectionRef); // No server-side orderBy
     let isFirstLoad = true;
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
@@ -71,8 +79,10 @@ export const listenToCooperativeLoans = (
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
+        
         const sortedLoans = sortLoans(loans, 'applicationDate', 'desc');
         callback(sortedLoans);
+
         if (isFirstLoad) {
             onComplete();
             isFirstLoad = false;
@@ -85,7 +95,7 @@ export const listenToCooperativeLoans = (
 };
 
 export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]) => void) => {
-    const q = createOrderByQuery(loansCollectionRef, [where("memberId", "==", memberId)]);
+    const q = query(loansCollectionRef, where("memberId", "==", memberId)); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -99,6 +109,7 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
+        
         const sortedLoans = sortLoans(loans, 'applicationDate', 'desc');
         callback(sortedLoans);
     });
@@ -221,7 +232,7 @@ export const deleteLoan = async (loanId: string) => {
 }
 
 export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) => void) => {
-    const q = createOrderByQuery(repaymentsCollectionRef, []);
+    const q = query(repaymentsCollectionRef); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
@@ -235,6 +246,7 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
                 note: data.note || '',
             } as LoanRepayment);
         });
+        
         const sortedRepayments = sortRepayments(repayments, 'repaymentDate', 'desc');
         callback(sortedRepayments);
     });
@@ -242,7 +254,7 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
 };
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
-    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
+    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId)); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
