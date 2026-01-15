@@ -1,16 +1,35 @@
-import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
-import { v4 as uuidv4 } from 'uuid';
-import { db } from '@/lib/firebase'
-import type { Transaction, CurrencyValues, Account, AccountSummary } from '@/lib/types'
 
-const transactionsCollectionRef = collection(db, 'cooperative-transactions');
+
+import { db } from '@/lib/firebase';
+import type { AccountSummary, Transaction, CurrencyValues } from '@/lib/types';
+import { 
+    doc, 
+    onSnapshot, 
+    setDoc,
+    getDoc,
+    collection,
+    query,
+    orderBy,
+    addDoc,
+    Timestamp,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp,
+    writeBatch,
+    where,
+    getDocs,
+} from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
+
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
+const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
-const initialSummaryState: Omit<AccountSummary, 'id'> = {
+
+const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' > = {
     capital: { ...initialCurrencyValues },
-    cash: { ...initialCurrencyValues },
+    cash: { kip: 500000000, thb: 10000, usd: 500, cny: 0 },
     transfer: { ...initialCurrencyValues },
     bankAccount: { ...initialCurrencyValues },
 };
@@ -46,6 +65,32 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
     await setDoc(summaryDocRef, summary, { merge: true });
 };
 
+export const listenToCooperativeTransactions = (
+    callback: (items: Transaction[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const transactions: Transaction[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            transactions.push({ 
+                id: doc.id, 
+                ...data,
+                date: (data.date as Timestamp)?.toDate(),
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            } as Transaction);
+        });
+        callback(transactions);
+    },
+    (error) => {
+        console.error("Error in cooperative account transaction listener:", error);
+        if (onError) {
+            onError(error);
+        }
+    });
+    return unsubscribe;
+};
 
 export async function createTransaction(
   debitAccountId: string,
@@ -110,36 +155,8 @@ export function sumCurrency(a: CurrencyValues, b: CurrencyValues): CurrencyValue
   }
 }
 
-export const listenToCooperativeTransactions = (
-    callback: (items: Transaction[]) => void,
-    onError?: (error: Error) => void
-) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const transactions: Transaction[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            transactions.push({ 
-                id: doc.id, 
-                ...data,
-                date: (data.date as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-            } as Transaction);
-        });
-        callback(transactions);
-    },
-    (error) => {
-        console.error("Error in cooperative account transaction listener:", error);
-        if (onError) {
-            onError(error);
-        }
-    });
-    return unsubscribe;
-};
-
 export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
     const balances: Record<string, CurrencyValues> = {};
-    const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
     transactions.forEach(tx => {
         if (!balances[tx.accountId]) {
@@ -148,6 +165,7 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
         const multiplier = tx.type === 'debit' ? 1 : -1;
         
+        const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
         currencyKeys.forEach(currencyKey => {
             if (tx.amount && tx.amount[currencyKey]) {
                 balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
@@ -157,3 +175,4 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
     return balances;
 }
+
