@@ -220,7 +220,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
+export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChannel = 'cash' }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date, paymentChannel?: 'cash' | 'bank_bcel' }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
     const totalRepayments = await getLoanRepayments(loan.id);
     const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
     const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
@@ -262,13 +262,14 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
         description: `Repayment for Loan #${loan.loanCode}`,
         date: paymentDate,
-        loanId: loan.id
+        loanId: loan.id,
+        paymentChannel: paymentChannel
     });
 
     return { principalPortion, profitPortion, transactionGroupId };
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string}[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
@@ -281,7 +282,8 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
      const { principalPortion, profitPortion, transactionGroupId } = await recordLoanPayment({
           loan: loanDoc,
           amount: { ...amountPaid },
-          paymentDate: r.date
+          paymentDate: r.date,
+          paymentChannel: r.paymentChannel || 'cash'
       });
 
     batch.set(newRepaymentRef, {
@@ -345,4 +347,3 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
-

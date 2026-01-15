@@ -108,6 +108,7 @@ export default function CooperativeAccountingPage() {
     const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
     const [profitAmount, setProfitAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
     const [selectedAction, setSelectedAction] = useState<UserAction | undefined>();
+    const [paymentChannel, setPaymentChannel] = useState<'cash' | 'bank_bcel'>('cash');
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -225,7 +226,8 @@ export default function CooperativeAccountingPage() {
                 amount,
                 profit: selectedAction === 'SELL_MURABAHA' ? profitAmount : undefined,
                 description,
-                date
+                date,
+                paymentChannel
             });
             toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
             // Reset form
@@ -234,6 +236,7 @@ export default function CooperativeAccountingPage() {
             setSelectedAction(undefined);
             setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
             setProfitAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setPaymentChannel('cash');
 
         } catch (error) {
             console.error("Error adding transaction:", error);
@@ -306,8 +309,7 @@ export default function CooperativeAccountingPage() {
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={
-                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
-                                    acc.id === 'share_capital' ? () => router.push('/tee/cooperative/members') : undefined
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
                                 }
                                 href={acc.href}
                             />
@@ -327,6 +329,16 @@ export default function CooperativeAccountingPage() {
                                     <Select value={selectedAction} onValueChange={(v) => setSelectedAction(v as UserAction)}>
                                         <SelectTrigger><SelectValue placeholder="ເລືອກເຫດການທີ່ເກີດຂຶ້ນ..." /></SelectTrigger>
                                         <SelectContent>{userActions.map(action => <SelectItem key={action.value} value={action.value}>{action.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                 <div className="grid gap-2">
+                                    <Label>ຊ່ອງທາງການຊຳລະ</Label>
+                                    <Select value={paymentChannel} onValueChange={(v) => setPaymentChannel(v as 'cash' | 'bank_bcel')}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="cash">ເງິນສົດ (Cash)</SelectItem>
+                                            <SelectItem value="bank_bcel">ບັນຊີ BCEL</SelectItem>
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="grid gap-2">

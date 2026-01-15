@@ -37,7 +37,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
  * Maps user actions to automatic journal entries with Shariah compliance checks
  * This ensures all transactions follow Islamic accounting principles
  */
-export function mapActionToEntry(action: UserAction): AutoEntry {
+export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'bank_bcel' = 'cash'): AutoEntry {
   const contractType = actionContractMap[action];
   if (!contractType) {
     throw new Error(`Unsupported action or missing contract type for: ${action}`);
@@ -52,7 +52,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       // Member deposits cash to the cooperative (like a savings account)
       // This is a Qard contract - members can withdraw anytime
       return {
-        debitAccountId: 'cash',
+        debitAccountId: paymentChannel,
         creditAccountId: 'deposits_liability',
         contractType,
         shariahCompliance: {
@@ -81,7 +81,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       // Member withdraws from their deposit
       return {
         debitAccountId: 'deposits_liability',
-        creditAccountId: 'cash',
+        creditAccountId: paymentChannel,
         contractType,
         shariahCompliance: {
           isRibaFree: true,
@@ -123,7 +123,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       // Collect payment from murabaha sale
       // When payment received: Reduce receivable, realize deferred income as profit
       return {
-        debitAccountId: 'cash',
+        debitAccountId: paymentChannel,
         creditAccountId: 'murabaha_receivable',
         contractType,
         shariahCompliance: {
@@ -136,7 +136,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
           {
             // Realize the profit portion as income
             debitAccountId: 'deferred_murabaha_income',
-            creditAccountId: 'murabaha_income',
+            creditAccountId: 'sales_income', // Changed from murabaha_income
             amountField: 'profit'
           }
         ]
@@ -151,7 +151,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       // The cooperative receives ZERO profit from this
       return {
         debitAccountId: 'qard_hasan_receivable',
-        creditAccountId: 'cash',
+        creditAccountId: paymentChannel,
         contractType,
         shariahCompliance: {
           isRibaFree: true,
@@ -164,7 +164,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'QARD_HASAN_RECEIVE':
       // Receive repayment of qard hasan loan
       return {
-        debitAccountId: 'cash',
+        debitAccountId: paymentChannel,
         creditAccountId: 'qard_hasan_receivable',
         contractType,
         shariahCompliance: {
@@ -196,7 +196,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'COLLECT_RECEIVABLE':
       // Collect payment from credit sale
       return {
-        debitAccountId: 'cash',
+        debitAccountId: paymentChannel,
         creditAccountId: 'accounts_receivable',
         contractType,
         shariahCompliance: {
@@ -215,7 +215,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
       // Invest cash in mudarabah or musharakah project
       return {
         debitAccountId: 'investments',
-        creditAccountId: 'cash',
+        creditAccountId: paymentChannel,
         contractType,
         shariahCompliance: {
           isRibaFree: true,
@@ -228,7 +228,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'RECEIVE_INVESTMENT_INCOME':
       // Receive profit/income from investment
       return {
-        debitAccountId: 'cash',
+        debitAccountId: paymentChannel,
         creditAccountId: 'investment_income',
         contractType,
         shariahCompliance: {
@@ -246,7 +246,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
     case 'PAY_GENERAL_EXPENSE':
       return {
         debitAccountId: 'expense_general',
-        creditAccountId: 'cash',
+        creditAccountId: paymentChannel,
         contractType: 'SALE', // Expenses are part of general operational 'sales' cycle
         shariahCompliance: {
           isRibaFree: true,

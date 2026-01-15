@@ -99,8 +99,8 @@ export async function createJournalTransaction(
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date, loanId }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string}): Promise<string> {
-    const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
+export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}): Promise<string> {
+    const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
 
     const primaryAmount = { ...amount };
     // Primary entry
@@ -222,3 +222,6 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
     return balances;
 }
+
+
+

@@ -37,6 +37,7 @@ export default function LoanPaymentPage() {
     const [paymentDate, setPaymentDate] = useState<Date>(new Date());
     const [paymentAmount, setPaymentAmount] = useState<CurrencyValues>({...initialCurrencyValues});
     const [note, setNote] = useState('');
+    const [paymentChannel, setPaymentChannel] = useState<'cash' | 'bank_bcel'>('cash');
     
     const selectedLoan = loans.find(l => l.id === selectedLoanId);
 
@@ -75,7 +76,8 @@ export default function LoanPaymentPage() {
             await addLoanRepayment(selectedLoanId, [{
                 amount: paymentAmount,
                 date: startOfDay(paymentDate),
-                note: note
+                note: note,
+                paymentChannel: paymentChannel,
             }]);
 
             toast({ title: "ຊໍາລະສຳເລັດ" });
@@ -144,6 +146,16 @@ export default function LoanPaymentPage() {
                             {/* จำนวนเงิน */}
                             {selectedLoan && (
                                 <div className="grid gap-2">
+                                     <div className="grid gap-2">
+                                        <Label>ຊ່ອງທາງການຊຳລະ</Label>
+                                        <Select value={paymentChannel} onValueChange={(v) => setPaymentChannel(v as 'cash' | 'bank_bcel')}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="cash">ເງິນສົດ (Cash)</SelectItem>
+                                                <SelectItem value="bank_bcel">ບັນຊີ BCEL</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <Label>ຈຳນວນຊໍາລະ</Label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                         {currencies.map(cur => (
