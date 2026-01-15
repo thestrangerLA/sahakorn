@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -72,18 +71,13 @@ const SummaryCard = ({ title, balances, icon, className, onClick, href }: { titl
 
 const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
-    { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
-    { value: 'PURCHASE_INVENTORY', label: 'ຊື້ສິນຄ້າເຂົ້າສາງ (Purchase Inventory)' },
-    { value: 'SET_INVENTORY_OPENING_BALANCE', label: 'ຕັ້ງຄ່າຍອດສິນຄ້າຄົງເຫຼືອ (Set Inventory)' },
-    { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
-    { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
+    { value: 'PURCHASE_FIXED_ASSET', label: 'ຊື້ສິນຊັບຄົງທີ່ (Purchase Fixed Asset)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
     { value: 'COLLECT_MURABAHA_RECEIVABLE', label: 'ຮັບຊຳລະຈາກລູກໜີ້ການຄ້າ' },
     { value: 'PAY_GENERAL_EXPENSE', label: 'ຈ່າຍຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (Pay General Expense)' },
-    { value: 'ZERO_OUT_OPENING_BALANCE', label: 'ລ້າງຍອດທຶນຍົກມາ (Clear Opening Balance)' },
 ];
 
 
@@ -180,6 +174,16 @@ export default function CooperativeAccountingPage() {
         });
         return outstanding;
     }, [loans, repayments]);
+    
+    const totalFixedAssetsCurrentValue = useMemo(() => {
+        const fixedAssetTxs = transactions.filter(tx => tx.accountId === 'fixed_assets' && tx.type === 'debit');
+        return fixedAssetTxs.reduce((acc, tx) => {
+            currencies.forEach(c => {
+                acc[c] += tx.currentValue?.[c] || tx.amount?.[c] || 0;
+            });
+            return acc;
+        }, { ...initialCurrencyValues });
+    }, [transactions]);
 
 
     useEffect(() => {
@@ -316,7 +320,7 @@ export default function CooperativeAccountingPage() {
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                     {accounts
-                        .filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity')))
+                        .filter(a => a.type === 'asset' || a.id === 'share_capital')
                         .map(acc => {
                             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
                             if (acc.id === 'bank_bcel' && summary?.bankAccount) {
@@ -328,6 +332,9 @@ export default function CooperativeAccountingPage() {
                             if (acc.id === 'murabaha_receivable') {
                                 balances = totalMurabahaReceivable;
                             }
+                             if (acc.id === 'fixed_assets') {
+                                balances = totalFixedAssetsCurrentValue;
+                            }
 
                             return (
                             <SummaryCard 
@@ -337,6 +344,7 @@ export default function CooperativeAccountingPage() {
                                 icon={
                                     acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
                                     acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
+                                    acc.id === 'fixed_assets' ? <Building className="h-4 w-4 text-muted-foreground" /> :
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={
