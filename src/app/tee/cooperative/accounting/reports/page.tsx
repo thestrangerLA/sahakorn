@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FilePieChart, BookOpen, ChevronRight, FileText, Landmark } from "lucide-react";
+import { ArrowLeft, FilePieChart, BookOpen, ChevronRight, FileText, Landmark, Users } from "lucide-react";
 
 
 export default function CooperativeReportsPage() {
@@ -56,6 +56,22 @@ export default function CooperativeReportsPage() {
                                         <div>
                                             <CardTitle className="text-lg">ໃບສະຫຼຸບຊັບສິນ (Balance Sheet)</CardTitle>
                                             <CardDescription>ສະແດງສິນຊັບ, ໜີ້ສິນ, ແລະ ທຶນ</CardDescription>
+                                        </div>
+                                    </div>
+                                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                </CardHeader>
+                            </Card>
+                        </Link>
+                        <Link href="/tee/cooperative/accounting/reports/dividend">
+                            <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div className='flex items-center gap-4'>
+                                         <div className="bg-purple-100 p-3 rounded-full">
+                                          <Users className="h-6 w-6 text-purple-600" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg">ການປັນຜົນກຳໄລ</CardTitle>
+                                            <CardDescription>ຄິດໄລ່ ແລະ ແບ່ງປັນຜົນກຳໄລໃຫ້ກັບຜູ້ມີສ່ວນຮ່ວມ</CardDescription>
                                         </div>
                                     </div>
                                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
