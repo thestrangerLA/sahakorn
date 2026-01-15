@@ -74,8 +74,6 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
-    { value: 'PURCHASE_INVENTORY', label: 'ຊື້ສິນຄ້າເຂົ້າສາງ (Purchase Inventory)' },
-    { value: 'SET_INVENTORY_OPENING_BALANCE', label: 'ຕັ້ງຄ່າຍອດສິນຄ້າຄົງເຫຼືອ (Set Inventory)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
@@ -315,7 +313,7 @@ export default function CooperativeAccountingPage() {
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                     {accounts
-                        .filter(a => a.type === 'asset' || (a.type === 'equity' && (a.id === 'share_capital' || a.id === 'opening_balance_equity')))
+                        .filter(a => a.type === 'asset' || a.id === 'share_capital')
                         .map(acc => {
                             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
                             if (acc.id === 'bank_bcel' && summary?.bankAccount) {

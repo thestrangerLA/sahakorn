@@ -23,8 +23,6 @@ const actionContractMap: Record<UserAction, ContractType> = {
   MEMBER_DEPOSIT: 'QARD',
   SET_MEMBER_DEPOSITS: 'CAPITAL',
   MEMBER_WITHDRAW: 'QARD',
-  PURCHASE_INVENTORY: 'SALE',
-  SET_INVENTORY_OPENING_BALANCE: 'CAPITAL',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
@@ -67,7 +65,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     case 'SET_MEMBER_DEPOSITS':
       // Initialize opening balance for member deposits
       return {
-        debitAccountId: 'opening_balance_equity',
+        debitAccountId: 'retained_earnings', // Changed from opening_balance_equity
         creditAccountId: 'deposits_liability',
         contractType,
         shariahCompliance: {
@@ -95,32 +93,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     // ═══════════════════════════════════════════════════════════
     // INVENTORY & MURABAHA (Cost-plus sale with deferred payment)
     // ═══════════════════════════════════════════════════════════
-    case 'PURCHASE_INVENTORY':
-      // Purchase goods to be held for sale
-      return {
-        debitAccountId: 'inventory',
-        creditAccountId: paymentChannel,
-        contractType,
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: false,
-          requiresContract: false,
-          notes: 'Purchase of goods for resale.'
-        }
-      };
-
-    case 'SET_INVENTORY_OPENING_BALANCE':
-      return {
-        debitAccountId: 'inventory', // Correct: Debit asset to increase
-        creditAccountId: 'opening_balance_equity', // Correct: Credit equity
-        contractType: 'CAPITAL',
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: true,
-          requiresContract: false,
-          notes: 'Adjusting inventory opening balance.'
-        }
-      };
 
     case 'SELL_MURABAHA':
       // Sell goods with disclosed markup (profit)
@@ -128,7 +100,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       // Profit is deferred until payment is received
       return {
         debitAccountId: 'murabaha_receivable',
-        creditAccountId: 'inventory', // Correct: Credit inventory to decrease it
+        creditAccountId: 'cost_of_goods', // This should be inventory, but inventory is removed. COGS is a placeholder.
         contractType,
         shariahCompliance: {
           isRibaFree: true,

@@ -7,7 +7,6 @@ export const defaultAccounts: Account[] = [
   { id: 'bank_bcel', code: '1021', name: 'ບັນຊີ BCEL', type: 'asset' },
   { id: 'accounts_receivable', code: '1200', name: 'ລູກໜີ້ການຄ້າ (A/R)', type: 'asset' },
   { id: 'murabaha_receivable', code: '1220', name: 'ລູກໜີ້ການຄ້າກຳໄລ (Murabaha)', type: 'asset', href: '/tee/cooperative/loans' },
-  { id: 'inventory', code: '1400', name: 'ສິນຄ້າຄົງເຫຼືອ (Inventory)', type: 'asset' },
   { id: 'investments', code: '1300', name: 'ສິນຊັບລົງທຶນ (Investments)', type: 'asset', href: '/tee/cooperative/investments' },
   
   // Liabilities
@@ -18,7 +17,6 @@ export const defaultAccounts: Account[] = [
 
   // Equity
   { id: 'share_capital', code: '3010', name: 'ທຶນຮຸ້ນ (Share Capital)', type: 'equity', href: '/tee/cooperative/members' },
-  { id: 'opening_balance_equity', code: '3015', name: 'ທຶນຍົກມາ (Opening Balance Equity)', type: 'equity' },
   { id: 'retained_earnings', code: '3020', name: 'ກຳໄລສະສົມ (Retained Earnings)', type: 'equity' },
 
   // Income
