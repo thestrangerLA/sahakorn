@@ -1,5 +1,4 @@
 
-
 import type { UserAction, ContractType, CurrencyValues } from '@/lib/types';
 
 type AutoEntry = {
@@ -101,7 +100,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       // Profit is deferred until payment is received
       return {
         debitAccountId: 'murabaha_receivable',
-        creditAccountId: 'cost_of_goods', 
+        creditAccountId: 'inventory', 
         contractType,
         shariahCompliance: {
           isRibaFree: true,
