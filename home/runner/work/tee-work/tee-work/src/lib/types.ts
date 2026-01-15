@@ -37,8 +37,7 @@ export type UserAction =
   | 'MEMBER_DEPOSIT'
   | 'SET_MEMBER_DEPOSITS'
   | 'MEMBER_WITHDRAW'
-  | 'PURCHASE_INVENTORY'
-  | 'SET_INVENTORY_OPENING_BALANCE'
+  | 'PURCHASE_FIXED_ASSET'
   | 'SELL_CREDIT'
   | 'COLLECT_RECEIVABLE'
   | 'INVESTMENT_CASH'
@@ -46,7 +45,7 @@ export type UserAction =
   | 'SELL_MURABAHA'
   | 'COLLECT_MURABAHA_RECEIVABLE'
   | 'PAY_GENERAL_EXPENSE'
-  | 'ZERO_OUT_OPENING_BALANCE';
+  | 'SET_CASH_OPENING_BALANCE';
 
 
 export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
@@ -68,6 +67,7 @@ export interface Transaction {
   userAction?: UserAction;
   contractType?: ContractType;
   systemGenerated?: boolean;
+  currentValue?: number;
   [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
 }
 
