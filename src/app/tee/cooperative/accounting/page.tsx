@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -74,6 +75,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'PURCHASE_INVENTORY', label: 'ຊື້ສິນຄ້າເຂົ້າສາງ (Purchase Inventory)' },
+    { value: 'SET_INVENTORY_OPENING_BALANCE', label: 'ຕັ້ງຄ່າຍອດສິນຄ້າຄົງເຫຼືອ (Set Inventory)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
@@ -530,4 +532,3 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
-

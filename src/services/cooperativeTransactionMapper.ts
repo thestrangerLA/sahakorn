@@ -1,4 +1,5 @@
 
+
 import type { UserAction, ContractType, CurrencyValues } from '@/lib/types';
 
 type AutoEntry = {
@@ -23,6 +24,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
   SET_MEMBER_DEPOSITS: 'CAPITAL',
   MEMBER_WITHDRAW: 'QARD',
   PURCHASE_INVENTORY: 'SALE',
+  SET_INVENTORY_OPENING_BALANCE: 'CAPITAL',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
@@ -104,6 +106,19 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           requiresApproval: false,
           requiresContract: false,
           notes: 'Purchase of goods for resale.'
+        }
+      };
+
+    case 'SET_INVENTORY_OPENING_BALANCE':
+      return {
+        debitAccountId: 'opening_balance_equity',
+        creditAccountId: 'inventory',
+        contractType: 'CAPITAL',
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: true,
+          requiresContract: false,
+          notes: 'Adjusting inventory opening balance.'
         }
       };
 
