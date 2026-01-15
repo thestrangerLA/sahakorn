@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Trash2, PlusCircle, DollarSign, Printer, Search } from "lucide-react";
+import { ArrowLeft, Package, Trash2, PlusCircle, DollarSign, ArrowDown, ArrowUp, Printer, Search } from "lucide-react";
 import Link from 'next/link';
 import {
   Table,
@@ -44,7 +45,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { ApplianceStockItem } from '@/lib/types';
-import { listenToApplianceStockItems, addApplianceStockItem, deleteApplianceStockItem, updateApplianceStockItem } from '@/services/applianceStockService';
+import { listenToApplianceStockItems, addApplianceStockItem, deleteApplianceStockItem, updateApplianceStockQuantity, updateApplianceStockItem } from '@/services/applianceStockService';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -122,6 +124,70 @@ const AddItemDialog = ({ onAddItem }: { onAddItem: (item: Omit<ApplianceStockIte
                         <Button type="submit">ບັນທຶກ</Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+const StockAdjustmentDialog = ({ 
+    item, 
+    onAdjust, 
+    type 
+}: { 
+    item: ApplianceStockItem, 
+    onAdjust: (id: string, change: number, type: 'stock-in' | 'sale', detail: string) => Promise<void>,
+    type: 'stock-in' | 'sale'
+}) => {
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [quantity, setQuantity] = useState(0);
+    const [detail, setDetail] = useState('');
+
+    const handleAdjust = async () => {
+        if (quantity <= 0) {
+            toast({ title: "Invalid Quantity", variant: "destructive" });
+            return;
+        }
+        const change = type === 'sale' ? -quantity : quantity;
+        try {
+            await onAdjust(item.id, change, type, detail);
+            toast({ title: "Stock updated successfully" });
+            setOpen(false);
+            setQuantity(0);
+            setDetail('');
+        } catch (error: any) {
+            console.error("Error adjusting stock:", error);
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant={type === 'stock-in' ? 'outline' : 'destructive'} size="sm" className="h-8">
+                     {type === 'stock-in' ? <ArrowUp className="mr-2 h-4 w-4" /> : <ArrowDown className="mr-2 h-4 w-4" />}
+                    {type === 'stock-in' ? 'ຮັບເຂົ້າ' : 'ຂາຍອອກ'}
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{type === 'stock-in' ? 'ຮັບສິນຄ້າເຂົ້າ' : 'ຂາຍສິນຄ້າອອກ'}: {item.name}</DialogTitle>
+                    <DialogDescription>ບັນທຶກການເຄື່ອນໄຫວສິນຄ້າ.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="grid gap-2">
+                        <Label htmlFor="quantity">ຈຳນວນ</Label>
+                        <Input id="quantity" type="number" value={quantity || ''} onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="detail">{type === 'sale' ? 'ລູກຄ້າ (ຖ້າມີ)' : 'ລາຍລະອຽດການນຳເຂົ້າ'}</Label>
+                        <Input id="detail" value={detail} onChange={(e) => setDetail(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>ຍົກເລີກ</Button>
+                    <Button onClick={handleAdjust}>ບັນທຶກ</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -215,25 +281,17 @@ export default function ApplianceStockPage() {
                                     <TableHead className="text-right">ຕົ້ນทุน</TableHead>
                                     <TableHead className="text-right">ລາຄາຂາຍ</TableHead>
                                     <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
-                                    <TableHead className="text-center w-[100px]">ຈັດການ</TableHead>
+                                    <TableHead className="text-center w-[250px]">ຈັດການ</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredStockItems.length > 0 ? filteredStockItems.map(item => (
                                     <TableRow key={item.id} className={item.currentStock === 0 ? 'bg-red-50/50' : ''}>
-                                        <TableCell className="font-mono p-1">
-                                            <Input
-                                                defaultValue={item.sku}
-                                                onBlur={(e) => handleFieldChange(item.id, 'sku', e.target.value)}
-                                                className="h-8 w-24"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-medium p-1">
-                                            <Input
-                                                defaultValue={item.name}
-                                                onBlur={(e) => handleFieldChange(item.id, 'name', e.target.value)}
-                                                className="h-8"
-                                            />
+                                        <TableCell className="font-mono">{item.sku}</TableCell>
+                                        <TableCell className="font-medium">
+                                          <Link href={`/appliances/stock/${item.id}`} className="hover:underline">
+                                            {item.name}
+                                          </Link>
                                         </TableCell>
                                         <TableCell className="text-right p-1">
                                             <Input
@@ -260,6 +318,8 @@ export default function ApplianceStockPage() {
                                             />
                                         </TableCell>
                                         <TableCell className="text-center space-x-1">
+                                            <StockAdjustmentDialog item={item} onAdjust={updateApplianceStockQuantity} type="stock-in" />
+                                            <StockAdjustmentDialog item={item} onAdjust={updateApplianceStockQuantity} type="sale" />
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-red-500" /></Button></AlertDialogTrigger>
                                                 <AlertDialogContent>

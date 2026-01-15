@@ -56,7 +56,7 @@ export interface Transaction {
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';
-  amount: CurrencyValues;
+  amount: any;
   description: string;
   reference?: string;
   loanId?: string;
@@ -68,7 +68,10 @@ export interface Transaction {
   contractType?: ContractType;
   systemGenerated?: boolean;
   currentValue?: CurrencyValues;
-  [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
+  kip?: number;
+  baht?: number;
+  usd?: number;
+  cny?: number;
 }
 
 
@@ -328,3 +331,4 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
+

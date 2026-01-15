@@ -30,7 +30,12 @@ export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
     onComplete: () => void
 ) => {
-    const q = query(loansCollectionRef, orderBy('applicationDate', 'desc'));
+    const q = query(
+        loansCollectionRef, 
+        where('applicationDate', '!=', null), 
+        orderBy('applicationDate', 'desc')
+    );
+    let isFirstLoad = true;
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -45,7 +50,10 @@ export const listenToCooperativeLoans = (
             } as Loan);
         });
         callback(loans);
-        onComplete();
+        if (isFirstLoad) {
+            onComplete();
+            isFirstLoad = false;
+        }
     }, (error) => {
         console.error("Error listening to loans:", error);
         onComplete();
@@ -181,6 +189,13 @@ export const deleteLoan = async (loanId: string) => {
     repaymentDocs.forEach(doc => {
         batch.delete(doc.ref);
     });
+    
+    // Also delete associated accounting entries
+    const accountingQuery = query(collection(db, 'cooperative-transactions'), where('loanId', '==', loanId));
+    const accountingDocs = await getDocs(accountingQuery);
+    accountingDocs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
 
     await batch.commit();
 }
@@ -238,14 +253,15 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChan
     }, { ...initialCurrencyValues });
 
     const principalDue = currencies.reduce((acc, c) => {
-        acc[c] = (loan.amount[c] || 0) - totalPaidSoFar[c];
+        const principalAlreadyPaid = totalRepayments.reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
+        acc[c] = (loan.amount[c] || 0) - principalAlreadyPaid;
         if (acc[c] < 0) acc[c] = 0;
         return acc;
     }, { ...initialCurrencyValues });
 
     const totalProfitDue = currencies.reduce((acc, c) => {
         const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaidSoFar = currencies.reduce((sum, cur) => sum + (totalPaidSoFar[cur] > (loan.amount[cur] || 0) ? totalPaidSoFar[cur] - (loan.amount[cur] || 0) : 0), 0);
+        const profitPaidSoFar = totalRepayments.reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
         acc[c] = totalProfit - profitPaidSoFar;
         if (acc[c] < 0) acc[c] = 0;
         return acc;
@@ -360,3 +376,4 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
+
