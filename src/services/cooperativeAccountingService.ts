@@ -1,6 +1,5 @@
 
-
-import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
 import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction, ContractType } from '@/lib/types'
@@ -206,6 +205,11 @@ export const listenToCooperativeTransactions = (
     return unsubscribe;
 };
 
+export async function updateCooperativeTransaction(id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) {
+    const transactionDocRef = doc(transactionsCollectionRef, id);
+    await updateDoc(transactionDocRef, updatedFields);
+};
+
 export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
     const balances: Record<string, CurrencyValues> = {};
     const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
@@ -226,8 +230,3 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
     return balances;
 }
-
-
-
-
-

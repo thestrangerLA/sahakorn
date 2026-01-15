@@ -6,11 +6,12 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, Building, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { listenToCooperativeTransactions, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, deleteTransactionGroup, updateCooperativeTransaction } from '@/services/cooperativeAccountingService';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
@@ -44,6 +45,10 @@ export default function CooperativeFixedAssetsPage() {
         }, { ...initialCurrencyValues });
     }, [fixedAssetTransactions]);
 
+    const totalCurrentValue = useMemo(() => {
+        return fixedAssetTransactions.reduce((sum, tx) => sum + (tx.currentValue || 0), 0);
+    }, [fixedAssetTransactions]);
+
     const handleDelete = async (transactionGroupId: string | undefined) => {
         if (!transactionGroupId) {
             toast({ title: 'ບໍ່ສາມາດລຶບໄດ້', description: 'ບໍ່ພົບ Transaction Group ID', variant: 'destructive'});
@@ -57,11 +62,23 @@ export default function CooperativeFixedAssetsPage() {
         }
     }
 
+    const handleCurrentValueChange = async (id: string, value: string) => {
+        const numericValue = Number(value) || 0;
+        try {
+            await updateCooperativeTransaction(id, { currentValue: numericValue });
+            // No toast for this to avoid being noisy
+        } catch (error) {
+            toast({ title: 'Error updating current value', variant: 'destructive' });
+        }
+    }
+
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-                    <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
+                    <Link href="/tee/cooperative/accounting">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
                 </Button>
                 <div className="flex items-center gap-2">
                     <Building className="h-6 w-6 text-primary" />
@@ -84,6 +101,7 @@ export default function CooperativeFixedAssetsPage() {
                                     <TableHead className="text-right">ມູນຄ່າ (THB)</TableHead>
                                     <TableHead className="text-right">ມູນຄ່າ (USD)</TableHead>
                                     <TableHead className="text-right">ມູນຄ່າ (CNY)</TableHead>
+                                    <TableHead className="text-right">ມູນຄ່າປັດຈຸບັນ (KIP)</TableHead>
                                     <TableHead><span className="sr-only">Actions</span></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -97,6 +115,14 @@ export default function CooperativeFixedAssetsPage() {
                                             <TableCell className="text-right font-mono">{formatCurrency(tx.amount.thb)}</TableCell>
                                             <TableCell className="text-right font-mono">{formatCurrency(tx.amount.usd)}</TableCell>
                                             <TableCell className="text-right font-mono">{formatCurrency(tx.amount.cny)}</TableCell>
+                                            <TableCell className="text-right font-mono p-1">
+                                                <Input 
+                                                    type="number" 
+                                                    defaultValue={tx.currentValue}
+                                                    onBlur={(e) => handleCurrentValueChange(tx.id, e.target.value)}
+                                                    className="h-8 text-right"
+                                                />
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                  <AlertDialog>
                                                     <AlertDialogTrigger asChild>
@@ -120,7 +146,7 @@ export default function CooperativeFixedAssetsPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center h-24">ບໍ່ມີລາຍການສິນຊັບຄົງທີ່</TableCell>
+                                        <TableCell colSpan={8} className="text-center h-24">ບໍ່ມີລາຍການສິນຊັບຄົງທີ່</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -131,6 +157,7 @@ export default function CooperativeFixedAssetsPage() {
                                     <TableCell className="text-right">{formatCurrency(totalAssets.thb)}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(totalAssets.usd)}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(totalAssets.cny)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(totalCurrentValue)}</TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableFooter>
