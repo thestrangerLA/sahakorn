@@ -31,6 +31,14 @@ export default function TourProgramsPage() {
         return () => unsubscribe();
     }, []);
 
+    const sortedPrograms = useMemo(() => {
+        return [...programs].sort((a, b) => {
+            const tourCodeA = a.tourCode || '';
+            const tourCodeB = b.tourCode || '';
+            return tourCodeA.localeCompare(tourCodeB);
+        });
+    }, [programs]);
+
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation(); // Prevent row click event
         if (window.confirm("Are you sure you want to delete this tour program and all its data?")) {
@@ -88,8 +96,8 @@ export default function TourProgramsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {programs.length > 0 ? (
-                                    programs.map(program => (
+                                {sortedPrograms.length > 0 ? (
+                                    sortedPrograms.map(program => (
                                         <TableRow key={program.id} className="cursor-pointer" onClick={() => navigateToDetail(program.id)}>
                                             <TableCell>{program.date ? format(program.date, 'dd/MM/yyyy') : '-'}</TableCell>
                                             <TableCell className="font-medium">{program.tourCode}</TableCell>
@@ -99,7 +107,7 @@ export default function TourProgramsPage() {
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                        <Button aria-haspopup="true" size="icon" variant="ghost">
                                                             <MoreHorizontal className="h-4 w-4" />
                                                             <span className="sr-only">Toggle menu</span>
                                                         </Button>
