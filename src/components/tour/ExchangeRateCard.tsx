@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
 
 export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
 export type ExchangeRates = {
@@ -32,19 +32,34 @@ interface ExchangeRateCardProps {
 export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange }: ExchangeRateCardProps) {
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
+    const [selectedCostCurrencies, setSelectedCostCurrencies] = useState<Currency[]>(['LAK', 'THB', 'USD', 'CNY']);
+
     useEffect(() => { setIsClient(true); }, []);
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
+        
         onRatesChange({
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
         });
     };
+
+    const handleCostCurrencyToggle = (currency: Currency, checked: boolean) => {
+        setSelectedCostCurrencies(prev => 
+            checked
+                ? [...prev, currency]
+                : prev.filter(c => c !== currency)
+        );
+    };
     
-    const convertToTarget = (amounts: Record<Currency, number>): number => {
-        return (Object.keys(amounts) as Currency[]).reduce((acc, currency) => {
-            const amount = amounts[currency] || 0;
+    const convertedIncome = useMemo(() => {
+        return totalIncome[targetCurrency] || 0;
+    }, [totalIncome, targetCurrency]);
+
+    const convertedCost = useMemo(() => {
+        return (selectedCostCurrencies).reduce((acc, currency) => {
+            const amount = totalCost[currency] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -52,17 +67,16 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
             if (rate) {
                 return acc + (amount * rate);
             }
+             // Fallback via USD if direct rate is missing
             const rateToUsd = rates[currency]?.USD;
             const rateFromUsd = rates['USD']?.[targetCurrency];
             if (rateToUsd && rateFromUsd) {
                 return acc + (amount * rateToUsd * rateFromUsd);
             }
-            return acc;
+            return acc; // Return accumulator if no conversion path found
         }, 0);
-    };
+    }, [totalCost, rates, targetCurrency, selectedCostCurrencies]);
 
-    const convertedIncome = useMemo(() => convertToTarget(totalIncome), [totalIncome, rates, targetCurrency]);
-    const convertedCost = useMemo(() => convertToTarget(totalCost), [totalCost, rates, targetCurrency]);
     const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
     
     if (!isClient) {
@@ -151,7 +165,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
                     <CardTitle>ສະຫຼຸບກຳໄລ</CardTitle>
                     <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
                         <div>
-                            <Label htmlFor="target-currency">ສະກຸນເງິນເປົ້າໝາຍ</Label>
+                            <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
                             <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
                                 <SelectTrigger id="target-currency">
                                     <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
@@ -163,12 +177,29 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="space-y-2">
+                             <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
+                                {(Object.keys(totalCost) as Currency[]).map(currency => (
+                                    (totalCost[currency] > 0) && (
+                                        <div key={currency} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`cost-currency-${currency}`}
+                                                checked={selectedCostCurrencies.includes(currency)}
+                                                onCheckedChange={(checked) => handleCostCurrencyToggle(currency, !!checked)}
+                                            />
+                                            <Label htmlFor={`cost-currency-${currency}`} className="font-normal">{currency}</Label>
+                                        </div>
+                                    )
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-3 gap-4">
                     <Card className="bg-green-50 border-green-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ລາຍຮັບລວມ</CardTitle>
+                             <CardTitle className="text-sm font-medium">ລາຍຮັບລວມ ({targetCurrency})</CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className="text-2xl font-bold">{formatNumber(convertedIncome)} <span className="text-sm font-medium">{targetCurrency}</span></p>
@@ -176,7 +207,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
                     </Card>
                      <Card className="bg-red-50 border-red-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ</CardTitle>
+                             <CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ ({targetCurrency})</CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className="text-2xl font-bold">{formatNumber(convertedCost)} <span className="text-sm font-medium">{targetCurrency}</span></p>
@@ -184,7 +215,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
                     </Card>
                      <Card className="bg-blue-50 border-blue-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ</CardTitle>
+                             <CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ ({targetCurrency})</CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className={`text-2xl font-bold ${convertedProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatNumber(convertedProfit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
