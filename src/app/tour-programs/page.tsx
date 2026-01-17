@@ -29,7 +29,7 @@ export default function TourProgramsPage() {
     const { toast } = useToast();
     const router = useClientRouter();
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+    const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
     useEffect(() => {
         const unsubscribe = listenToTourPrograms(setPrograms);
@@ -48,19 +48,23 @@ export default function TourProgramsPage() {
     }, [programs]);
 
     const filteredAndSortedPrograms = useMemo(() => {
-        return programs
-        .filter(program => {
+        const filteredByMonth = programs.filter(program => {
+            if (selectedMonth === 'all') {
+                return true;
+            }
             const savedAtDate = toDateSafe(program.date);
             const [year, month] = selectedMonth.split('-').map(Number);
             const selectedDate = new Date(year, month - 1);
-            const matchesMonth = savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
-            if (!matchesMonth) return false;
+            return savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
+        });
 
+        const filteredBySearch = filteredByMonth.filter(program => {
             const tourCode = program.tourCode?.toLowerCase() || '';
             const programName = program.programName?.toLowerCase() || '';
             return tourCode.includes(searchQuery.toLowerCase()) || programName.includes(searchQuery.toLowerCase());
-        })
-        .sort((a, b) => {
+        });
+        
+        return filteredBySearch.sort((a, b) => {
             const tourCodeA = a.tourCode || '';
             const tourCodeB = b.tourCode || '';
             return tourCodeB.localeCompare(tourCodeA); // Sort descending
@@ -110,6 +114,7 @@ export default function TourProgramsPage() {
                             <SelectValue placeholder="ເລືອກເດືອນ" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">ທຸກເດືອນ</SelectItem>
                             {availableMonths.map(month => (
                                 <SelectItem key={month} value={month}>
                                     {format(new Date(month + '-02'), 'LLLL yyyy')}
