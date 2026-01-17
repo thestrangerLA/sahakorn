@@ -294,7 +294,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [profitPercentage, setProfitPercentage] = useState<number>(0);
 
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
@@ -767,7 +766,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                        <div>
@@ -801,8 +800,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             grandTotals={summaryData.profit}
                             rates={exchangeRates} 
                             onRatesChange={setExchangeRates}
-                            profitPercentage={profitPercentage}
-                            onProfitPercentageChange={setProfitPercentage}
                         />
                   </CardContent>
               </Card>

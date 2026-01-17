@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -27,11 +26,9 @@ interface ExchangeRateCardProps {
     grandTotals: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
-    profitPercentage: number;
-    onProfitPercentageChange: (percentage: number) => void;
 }
 
-export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPercentage, onProfitPercentageChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ grandTotals, rates, onRatesChange }: ExchangeRateCardProps) {
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
 
     const [isClient, setIsClient] = useState(false);
@@ -69,13 +66,6 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
 
     }, [grandTotals, rates, targetCurrency]);
 
-    const finalSalePrice = useMemo(() => {
-        return convertedTotal * (1 + profitPercentage / 100);
-    }, [convertedTotal, profitPercentage]);
-
-    const profit = useMemo(() => {
-        return finalSalePrice - convertedTotal;
-    }, [finalSalePrice, convertedTotal]);
     
     if (!isClient) {
         return null;
@@ -158,9 +148,9 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
                         {/* Converted Total Section */}
                         <Card className="border-dashed border-2">
                             <CardContent className="p-4 space-y-4">
-                                <div className="grid md:grid-cols-2 gap-4 items-end">
+                                <div className="grid md:grid-cols-1 gap-4 items-end">
                                     <div>
-                                        <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການຂາຍ</Label>
+                                        <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
                                         <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
                                             <SelectTrigger id="target-currency">
                                                 <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
@@ -172,15 +162,6 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Label className="whitespace-nowrap">ກຳໄລ %</Label>
-                                        <Input 
-                                            type="number" 
-                                            value={profitPercentage}
-                                            onChange={e => onProfitPercentageChange(parseFloat(e.target.value) || 0)}
-                                            className="w-[100px]"
-                                        />
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -188,8 +169,7 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
                 </Card>
             </div>
 
-            {/* Sale Price Calculation */}
-            <div className="grid md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-2 print:pt-2">
+            <div className="grid md:grid-cols-1 gap-6 print:grid-cols-1 print:gap-2 print:pt-2">
                 <Card>
                     <CardHeader className="print:p-2">
                         <CardTitle className="text-lg print:text-sm">ຍອດລວມທີ່ແປງແລ້ວ</CardTitle>
@@ -203,35 +183,7 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="print:p-2">
-                        <CardTitle className="text-lg print:text-sm">ລາຄາຂາຍ</CardTitle>
-                        <CardDescription className="text-xs print:hidden">ຄຳນວນລາຄາຂາຍໂດຍອີງໃສ່ເປີເຊັນທີ່ເພີ່ມຂຶ້ນ</CardDescription>
-                    </CardHeader>
-                    <CardContent className="print:p-2">
-                        <div className="text-xl print:text-base font-bold text-green-600 p-4 print:p-2 border bg-green-50 rounded-md text-center">
-                            <p className="text-sm print:text-xs font-medium text-muted-foreground">ລາຄາຂາຍສຸດທິ</p>
-                            <span>{formatNumber(finalSalePrice)}</span>
-                            <span className="text-sm print:text-xs font-medium text-muted-foreground ml-2">{targetCurrency}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="print:p-2">
-                        <CardTitle className="flex items-center gap-2 text-lg print:text-sm"><LineChart className="h-5 w-5 print:hidden"/>ກຳໄລ</CardTitle>
-                        <CardDescription className="text-xs print:hidden">ກຳໄລຈາກເປີເຊັນທີ່ເພີ່ມຂຶ້ນ</CardDescription>
-                    </CardHeader>
-                    <CardContent className="print:p-2">
-                        <div className="text-xl print:text-base font-bold text-blue-600 p-4 print:p-2 border bg-blue-50 rounded-md text-center">
-                            <p className="text-sm print:text-xs font-medium text-muted-foreground">ກຳໄລ</p>
-                            <span>{formatNumber(profit)}</span>
-                            <span className="text-sm print:text-xs font-medium text-muted-foreground ml-2">{targetCurrency}</span>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         </>
     );
 }
-
-    

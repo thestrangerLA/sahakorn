@@ -54,7 +54,6 @@ export default function ProgramSummaryPage() {
     const [startDate, setStartDate] = useState<Date | undefined>(startOfYear(new Date()));
     const [endDate, setEndDate] = useState<Date | undefined>(endOfYear(new Date()));
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [profitPercentage, setProfitPercentage] = useState<number>(0);
 
     useEffect(() => {
         const unsubscribePrograms = listenToAllTourPrograms(setPrograms);
@@ -281,8 +280,6 @@ export default function ProgramSummaryPage() {
                     grandTotals={grandTotalProfit}
                     rates={exchangeRates}
                     onRatesChange={setExchangeRates}
-                    profitPercentage={profitPercentage}
-                    onProfitPercentageChange={setProfitPercentage}
                 />
             </main>
         </div>
