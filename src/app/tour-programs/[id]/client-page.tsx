@@ -293,7 +293,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
 
-    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialProgram?.exchangeRates || initialRates);
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
     const [isSavingRates, setIsSavingRates] = useState(false);
 
     useEffect(() => {
@@ -473,11 +473,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             totalIncomes.CNY += item.cny || 0;
         });
         
-        const profit = currencies.reduce((acc, c) => {
-            const key = c.toLowerCase() as keyof typeof totalIncomes;
-            acc[c] = (totalIncomes[key] || 0) - (totalCosts[key] || 0);
+        const profit = allCurrencies.reduce((acc, c) => {
+            acc[c] = (totalIncomes[c] || 0) - (totalCosts[c] || 0);
             return acc;
-        }, { LAK: 0, THB: 0, USD: 0, CNY: 0 });
+        }, { LAK: 0, THB: 0, USD: 0, CNY: 0 } as Record<Currency, number>);
         
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
@@ -752,6 +751,34 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                </div>
                            </div>
                        </div>
+                        <div className="space-y-2">
+                             <h3 className="text-base font-semibold border-b pb-1 font-lao">ກໍາໄລ/ຂາດທຶນ (Profit/Loss Summary)</h3>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="font-lao">ສະກຸນເງິນ (Currency)</TableHead>
+                                        <TableHead className="text-right">ລາຍຮັບ (Income)</TableHead>
+                                        <TableHead className="text-right">ລາຍຈ່າຍ (Costs)</TableHead>
+                                        <TableHead className="text-right">ກໍາໄລ/ຂາດທຶນ (Profit/Loss)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {printCurrencies.map(c => {
+                                        const currencyKey = c;
+                                        return (
+                                            <TableRow key={c}>
+                                                <TableCell className="font-medium">{c}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(summaryData.totalIncomes[currencyKey])}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(summaryData.totalCosts[currencyKey])}</TableCell>
+                                                <TableCell className={`text-right font-bold ${summaryData.profit[currencyKey] >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {formatCurrency(summaryData.profit[currencyKey])}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                             </Table>
+                        </div>
                     </div>
                 </div>
               <Card className="print:hidden">
