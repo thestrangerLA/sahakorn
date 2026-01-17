@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MoreHorizontal, ArrowLeft } from "lucide-react";
+import { PlusCircle, MoreHorizontal, ArrowLeft, Search } from "lucide-react";
 import { listenToTourPrograms, deleteTourProgram } from '@/services/tourProgramService';
 import type { TourProgram } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isSameMonth, isSameYear } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -19,25 +19,53 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useClientRouter } from '@/hooks/useClientRouter';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toDateSafe } from '@/lib/timestamp';
 
 
 export default function TourProgramsPage() {
     const [programs, setPrograms] = useState<TourProgram[]>([]);
     const { toast } = useToast();
     const router = useClientRouter();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
 
     useEffect(() => {
         const unsubscribe = listenToTourPrograms(setPrograms);
         return () => unsubscribe();
     }, []);
 
-    const sortedPrograms = useMemo(() => {
-        return [...programs].sort((a, b) => {
+    const availableMonths = useMemo(() => {
+        const monthSet = new Set<string>();
+        programs.forEach(prog => {
+            const date = toDateSafe(prog.date);
+            if (date) {
+                monthSet.add(format(date, 'yyyy-MM'));
+            }
+        });
+        return Array.from(monthSet).sort((a,b) => b.localeCompare(a));
+    }, [programs]);
+
+    const filteredAndSortedPrograms = useMemo(() => {
+        return programs
+        .filter(program => {
+            const savedAtDate = toDateSafe(program.date);
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1);
+            const matchesMonth = savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
+            if (!matchesMonth) return false;
+
+            const tourCode = program.tourCode?.toLowerCase() || '';
+            const programName = program.programName?.toLowerCase() || '';
+            return tourCode.includes(searchQuery.toLowerCase()) || programName.includes(searchQuery.toLowerCase());
+        })
+        .sort((a, b) => {
             const tourCodeA = a.tourCode || '';
             const tourCodeB = b.tourCode || '';
-            return tourCodeA.localeCompare(tourCodeB);
+            return tourCodeB.localeCompare(tourCodeA); // Sort descending
         });
-    }, [programs]);
+    }, [programs, searchQuery, selectedMonth]);
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation(); // Prevent row click event
@@ -66,7 +94,29 @@ export default function TourProgramsPage() {
                     </Link>
                 </Button>
                 <h1 className="text-xl font-semibold">ໂປຣແກຣມທົວທັງໝົດ</h1>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-2">
+                     <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="ຄົ້ນຫາ..."
+                            className="pl-8 sm:w-[200px] lg:w-[250px]"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                     <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="ເລືອກເດືອນ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableMonths.map(month => (
+                                <SelectItem key={month} value={month}>
+                                    {format(new Date(month + '-02'), 'LLLL yyyy')}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Button asChild size="sm">
                         <Link href="/tour-programs/new">
                             <PlusCircle className="mr-2 h-4 w-4" />
@@ -96,8 +146,8 @@ export default function TourProgramsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {sortedPrograms.length > 0 ? (
-                                    sortedPrograms.map(program => (
+                                {filteredAndSortedPrograms.length > 0 ? (
+                                    filteredAndSortedPrograms.map(program => (
                                         <TableRow key={program.id} className="cursor-pointer" onClick={() => navigateToDetail(program.id)}>
                                             <TableCell>{program.date ? format(program.date, 'dd/MM/yyyy') : '-'}</TableCell>
                                             <TableCell className="font-medium">{program.tourCode}</TableCell>
@@ -107,7 +157,7 @@ export default function TourProgramsPage() {
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                                             <MoreHorizontal className="h-4 w-4" />
                                                             <span className="sr-only">Toggle menu</span>
                                                         </Button>
