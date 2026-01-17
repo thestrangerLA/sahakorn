@@ -756,7 +756,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                        <div>
@@ -780,10 +780,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ກຳໄລ / ຂາດທຶນ (Profit / Loss)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              {printCurrencies.includes('LAK') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.lak} currency="LAK" isProfit />}
-                              {printCurrencies.includes('THB') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.thb} currency="THB" isProfit />}
-                              {printCurrencies.includes('USD') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.usd} currency="USD" isProfit />}
-                              {printCurrencies.includes('CNY') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />}
+                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.lak} currency="LAK" isProfit />
+                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.thb} currency="THB" isProfit />
+                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.usd} currency="USD" isProfit />
+                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />
                           </div>
                       </div>
                   </CardContent>
@@ -875,3 +875,5 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
+
+    
