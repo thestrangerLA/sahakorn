@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -32,6 +33,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
+import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
+import { toDateSafe } from '@/lib/timestamp';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -53,6 +56,13 @@ const initialDividendStructure = [
     { id: '5', name: 'CEO', percentage: 0.30 },
     { id: '6', name: 'ບັນຊີ', percentage: 0.05 },
 ];
+
+const initialRates: ExchangeRates = {
+    USD: { THB: 38, LAK: 25000, CNY: 8 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
+    CNY: { USD: 0.20, THB: 6, LAK: 3500 },
+    LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
+};
 
 const CurrencyEntryTable = ({ 
     items, 
@@ -285,6 +295,8 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
 
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
              setLoading(true);
@@ -431,31 +443,55 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     }
 
     const summaryData = useMemo(() => {
-        const totalCosts = costItems.reduce((acc, item) => {
-            acc.lak += item.lak || 0;
-            acc.thb += item.thb || 0;
-            acc.usd += item.usd || 0;
-            acc.cny += item.cny || 0;
-            return acc;
-        }, { lak: 0, thb: 0, usd: 0, cny: 0 });
+        const totalCosts: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        costItems.forEach(item => {
+            totalCosts.LAK += item.lak || 0;
+            totalCosts.THB += item.thb || 0;
+            totalCosts.USD += item.usd || 0;
+            totalCosts.CNY += item.cny || 0;
+        });
 
-         const totalIncomes = incomeItems.reduce((acc, item) => {
-            acc.lak += item.lak || 0;
-            acc.thb += item.thb || 0;
-            acc.usd += item.usd || 0;
-            acc.cny += item.cny || 0;
-            return acc;
-        }, { lak: 0, thb: 0, usd: 0, cny: 0 });
+        const totalIncomes: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        incomeItems.forEach(item => {
+            totalIncomes.LAK += item.lak || 0;
+            totalIncomes.THB += item.thb || 0;
+            totalIncomes.USD += item.usd || 0;
+            totalIncomes.CNY += item.cny || 0;
+        });
 
-        const profit = {
-            lak: totalIncomes.lak - totalCosts.lak,
-            thb: totalIncomes.thb - totalCosts.thb,
-            usd: totalIncomes.usd - totalCosts.usd,
-            cny: totalIncomes.cny - totalCosts.cny,
+        const profit: Record<Currency, number> = {
+            LAK: totalIncomes.LAK - totalCosts.LAK,
+            THB: totalIncomes.THB - totalCosts.THB,
+            USD: totalIncomes.USD - totalCosts.USD,
+            CNY: totalIncomes.CNY - totalCosts.CNY,
         };
-
+        
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
+    
+    const convertedTotalsInLAK = useMemo(() => {
+        const { totalIncomes, totalCosts } = summaryData;
+        const ratesLAK = {
+            LAK: 1,
+            THB: exchangeRates.THB?.LAK || 0,
+            USD: exchangeRates.USD?.LAK || 0,
+            CNY: exchangeRates.CNY?.LAK || 0,
+        };
+
+        const incomeInLAK = (Object.keys(totalIncomes) as Currency[]).reduce(
+            (sum, currency) => sum + (totalIncomes[currency as keyof typeof totalIncomes] * (ratesLAK[currency] || 0)),
+            0
+        );
+
+        const costInLAK = (Object.keys(totalCosts) as Currency[]).reduce(
+            (sum, currency) => sum + (totalCosts[currency as keyof typeof totalCosts] * (ratesLAK[currency] || 0)),
+            0
+        );
+        
+        const profitInLAK = incomeInLAK - costInLAK;
+
+        return { incomeInLAK, costInLAK, profitInLAK };
+    }, [summaryData, exchangeRates]);
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
         setPrintCurrencies(prev => 
@@ -546,7 +582,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                 <div>
                     <CardTitle>ລາຍລະອຽດໂປຣແກຣມ ແລະ ຂໍ້ມູນກຸ່ມ</CardTitle>
                     <CardDescription>
-                        ວັນທີສ້າງ: {localProgram.createdAt ? format(localProgram.createdAt, "PPP", {locale: th}) : '-'}
+                        ວັນທີສ້າງ: {localProgram.createdAt ? format(toDateSafe(localProgram.createdAt)!, "PPP", {locale: th}) : '-'}
                         {isSaving && <span className="ml-4 text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
                     </CardDescription>
                 </div>
@@ -756,36 +792,51 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2">ຍອດລວມທັງໝົດ (ตีเป็นเงินกีบ)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <SummaryCard title="ລາຍຮັບລວມ" value={convertedTotalsInLAK.incomeInLAK} currency="LAK" />
+                                <SummaryCard title="ຕົ້ນທຶນລວມ" value={convertedTotalsInLAK.costInLAK} currency="LAK" />
+                                <SummaryCard title="ກຳໄລລວມ" value={convertedTotalsInLAK.profitInLAK} currency="LAK" isProfit={true} />
+                            </div>
+                        </div>
+
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.lak} currency="LAK" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.thb} currency="THB" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.usd} currency="USD" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.cny} currency="CNY" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.LAK} currency="LAK" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.THB} currency="THB" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.USD} currency="USD" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.CNY} currency="CNY" />
                           </div>
                       </div>
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຈ່າຍ (Total Costs)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.lak} currency="LAK" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.thb} currency="THB" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.usd} currency="USD" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.cny} currency="CNY" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.LAK} currency="LAK" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.THB} currency="THB" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.USD} currency="USD" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.CNY} currency="CNY" />
                           </div>
                       </div>
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ກຳໄລ / ຂາດທຶນ (Profit / Loss)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              {printCurrencies.includes('LAK') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.lak} currency="LAK" isProfit />}
-                              {printCurrencies.includes('THB') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.thb} currency="THB" isProfit />}
-                              {printCurrencies.includes('USD') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.usd} currency="USD" isProfit />}
-                              {printCurrencies.includes('CNY') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />}
+                            {printCurrencies.includes('LAK') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.LAK} currency="LAK" isProfit />}
+                            {printCurrencies.includes('THB') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.THB} currency="THB" isProfit />}
+                            {printCurrencies.includes('USD') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.USD} currency="USD" isProfit />}
+                            {printCurrencies.includes('CNY') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.CNY} currency="CNY" isProfit />}
                           </div>
                       </div>
+                        <ExchangeRateCard 
+                            totalIncome={summaryData.totalIncomes}
+                            totalCost={summaryData.totalCosts}
+                            rates={exchangeRates} 
+                            onRatesChange={setExchangeRates}
+                        />
                   </CardContent>
               </Card>
           </TabsContent>
@@ -837,10 +888,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                             className="h-8 text-center"
                                         />
                                     </TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.lak * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.thb * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.usd * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.cny * item.percentage)}</TableCell>
+                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.LAK * item.percentage)}</TableCell>
+                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.THB * item.percentage)}</TableCell>
+                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.USD * item.percentage)}</TableCell>
+                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.CNY * item.percentage)}</TableCell>
                                     <TableCell className="p-1 print:hidden">
                                         <Button variant="ghost" size="icon" onClick={() => removeDividendRow(item.id)}>
                                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -853,10 +904,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow className="bg-muted font-bold">
                                 <TableCell>ລວມທັງໝົດ</TableCell>
                                 <TableCell className="text-center">{formatCurrency(totalPercentage * 100)}%</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.lak * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.thb * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.usd * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.cny * totalPercentage)}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.LAK * totalPercentage)}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.THB * totalPercentage)}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.USD * totalPercentage)}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.CNY * totalPercentage)}</TableCell>
                                 <TableCell className="print:hidden"></TableCell>
                             </TableRow>
                         </TableFooter>
@@ -875,5 +926,3 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
-
-    
