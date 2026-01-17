@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -279,6 +280,13 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
 type DividendItem = { id: string; name: string; percentage: number };
 
+type CalculatedTotals = {
+    income: number;
+    cost: number;
+    profit: number;
+    currency: Currency;
+};
+
 export default function TourProgramClientPage({ initialProgram }: { initialProgram: TourProgram }) {
     const { toast } = useToast();
     
@@ -296,10 +304,15 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [finalProfit, setFinalProfit] = useState({ amount: 0, currency: 'LAK' as Currency });
+    const [calculatedTotals, setCalculatedTotals] = useState<CalculatedTotals>({
+        income: 0,
+        cost: 0,
+        profit: 0,
+        currency: 'LAK',
+    });
 
-    const handleFinalProfitChange = useCallback((amount: number, currency: Currency) => {
-        setFinalProfit({ amount, currency });
+    const handleCalculatedTotalsChange = useCallback((totals: CalculatedTotals) => {
+        setCalculatedTotals(totals);
     }, []);
 
     const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
@@ -573,6 +586,55 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                     </div>
                 </div>
             )}
+            {activeTab === 'summary' && (
+                <>
+                <div className="space-y-2">
+                    <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
+                    <div className="flex justify-between text-sm pr-4">
+                        <span className="font-lao">ລວມ (Total)</span>
+                        <div className='flex gap-4 font-semibold'>
+                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.income)} ${calculatedTotals.currency}`}</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
+                    <div className="flex justify-between text-sm pr-4">
+                        <span className="font-lao">ລວມ (Total)</span>
+                        <div className='flex gap-4 font-semibold'>
+                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.cost)} ${calculatedTotals.currency}`}</span>
+                        </div>
+                    </div>
+                </div>
+                 <div className="space-y-2">
+                     <h3 className="text-base font-semibold border-b pb-1 font-lao">ກໍາໄລ/ຂາດທຶນ (Profit/Loss Summary)</h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="font-lao">ລາຍລະອຽດ</TableHead>
+                                <TableHead className="text-right">{calculatedTotals.currency}</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell className="font-medium">ລາຍຮັບລວມ</TableCell>
+                                <TableCell className="text-right text-green-600">{formatCurrency(calculatedTotals.income)}</TableCell>
+                            </TableRow>
+                             <TableRow>
+                                <TableCell className="font-medium">ຕົ້ນທຶນລວມ</TableCell>
+                                <TableCell className="text-right text-red-600">{formatCurrency(calculatedTotals.cost)}</TableCell>
+                            </TableRow>
+                            <TableRow className="font-bold bg-muted/50">
+                                <TableCell>ກຳໄລ/ຂາດທຶນສຸດທິ</TableCell>
+                                <TableCell className={`text-right font-bold ${calculatedTotals.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {formatCurrency(calculatedTotals.profit)}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                     </Table>
+                </div>
+                </>
+            )}
         </div>
     );
     
@@ -743,54 +805,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
           <TabsContent value="summary" className="mt-4">
                 <div className={activeTab === 'summary' ? 'block' : 'hidden'}>
                     <PrintHeader title="ສະຫຼຸບໂປຣແກມທົວ (Tour Program Summary)" />
-                    <div className="hidden print:block space-y-4">
-                        <div className="space-y-2">
-                           <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
-                           <div className="flex justify-between text-sm pr-4">
-                               <span className="font-lao">ລວມ (Total)</span>
-                               <div className='flex gap-4 font-semibold'>
-                                   {printCurrencies.map(c => <span key={c}>{`${formatCurrency((summaryData.totalIncomes as any)[c.toLowerCase()])} ${c}`}</span>)}
-                               </div>
-                           </div>
-                       </div>
-                       <div className="space-y-2">
-                           <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
-                           <div className="flex justify-between text-sm pr-4">
-                               <span className="font-lao">ລວມ (Total)</span>
-                               <div className='flex gap-4 font-semibold'>
-                                   {printCurrencies.map(c => <span key={c}>{`${formatCurrency((summaryData.totalCosts as any)[c.toLowerCase()])} ${c}`}</span>)}
-                               </div>
-                           </div>
-                       </div>
-                        <div className="space-y-2">
-                             <h3 className="text-base font-semibold border-b pb-1 font-lao">ກໍາໄລ/ຂາດທຶນ (Profit/Loss Summary)</h3>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="font-lao">ສະກຸນເງິນ (Currency)</TableHead>
-                                        <TableHead className="text-right">ລາຍຮັບ (Income)</TableHead>
-                                        <TableHead className="text-right">ລາຍຈ່າຍ (Costs)</TableHead>
-                                        <TableHead className="text-right">ກໍາໄລ/ຂາດທຶນ (Profit/Loss)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {printCurrencies.map(c => {
-                                        const currencyKey = c;
-                                        return (
-                                            <TableRow key={c}>
-                                                <TableCell className="font-medium">{c}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(summaryData.totalIncomes[currencyKey])}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(summaryData.totalCosts[currencyKey])}</TableCell>
-                                                <TableCell className={`text-right font-bold ${summaryData.profit[currencyKey] >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {formatCurrency(summaryData.profit[currencyKey])}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                             </Table>
-                        </div>
-                    </div>
                 </div>
               <Card className="print:hidden">
                   <CardHeader>
@@ -798,6 +812,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                       <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
+                      
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
@@ -821,7 +836,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
                             onRatesChange={handleRatesChange}
-                            onCalculatedProfitChange={handleFinalProfitChange}
+                            onCalculatedTotalsChange={handleCalculatedTotalsChange}
                         />
                   </CardContent>
               </Card>
@@ -836,9 +851,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                         <div className="pt-2 text-sm text-muted-foreground space-y-1">
                             <p><span className="font-semibold">Group Code:</span> {localProgram.tourCode}</p>
                             <div className="flex flex-wrap gap-x-4">
-                                <span className="font-semibold">Profit ({finalProfit.currency}):</span>
-                                <span className={`font-bold ${finalProfit.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {`${formatCurrency(finalProfit.amount)} ${finalProfit.currency}`}
+                                <span className="font-semibold">Profit ({calculatedTotals.currency}):</span>
+                                <span className={`font-bold ${calculatedTotals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {`${formatCurrency(calculatedTotals.profit)} ${calculatedTotals.currency}`}
                                 </span>
                             </div>
                         </div>
@@ -849,7 +864,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow>
                                 <TableHead className="w-1/3">ຜູ້ຮັບຜົນປະໂຫຍດ</TableHead>
                                 <TableHead className="w-[120px] text-center">ເປີເຊັນ (%)</TableHead>
-                                <TableHead className="text-right">ປັນຜົນ ({finalProfit.currency})</TableHead>
+                                <TableHead className="text-right">ປັນຜົນ ({calculatedTotals.currency})</TableHead>
                                 <TableHead className="w-[50px] print:hidden"><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -872,7 +887,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                         />
                                     </TableCell>
                                     <TableCell className="text-right font-mono p-1">
-                                        {formatCurrency(finalProfit.amount * item.percentage)}
+                                        {formatCurrency(calculatedTotals.profit * item.percentage)}
                                     </TableCell>
                                     <TableCell className="p-1 print:hidden">
                                         <Button variant="ghost" size="icon" onClick={() => removeDividendRow(item.id)}>
@@ -887,7 +902,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                 <TableCell>ລວມທັງໝົດ</TableCell>
                                 <TableCell className="text-center">{formatCurrency(totalPercentage * 100)}%</TableCell>
                                 <TableCell className="text-right font-mono">
-                                     {formatCurrency(finalProfit.amount * totalPercentage)}
+                                     {formatCurrency(calculatedTotals.profit * totalPercentage)}
                                 </TableCell>
                                 <TableCell className="print:hidden"></TableCell>
                             </TableRow>
@@ -907,5 +922,3 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
-
-    
