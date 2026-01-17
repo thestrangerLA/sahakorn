@@ -466,6 +466,30 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
 
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
+
+    const convertedTotalsInLAK = useMemo(() => {
+        const { totalIncomes, totalCosts } = summaryData;
+        const ratesLAK = {
+            LAK: 1,
+            THB: exchangeRates.THB?.LAK || 0,
+            USD: exchangeRates.USD?.LAK || 0,
+            CNY: exchangeRates.CNY?.LAK || 0,
+        };
+
+        const incomeInLAK = (Object.keys(totalIncomes) as Currency[]).reduce(
+            (sum, currency) => sum + (totalIncomes[currency as keyof typeof totalIncomes] * (ratesLAK[currency] || 0)),
+            0
+        );
+
+        const costInLAK = (Object.keys(totalCosts) as Currency[]).reduce(
+            (sum, currency) => sum + (totalCosts[currency as keyof typeof totalCosts] * (ratesLAK[currency] || 0)),
+            0
+        );
+        
+        const profitInLAK = incomeInLAK - costInLAK;
+
+        return { incomeInLAK, costInLAK, profitInLAK };
+    }, [summaryData, exchangeRates]);
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
         setPrintCurrencies(prev => 
@@ -766,34 +790,43 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2">ຍອດລວມທັງໝົດ (ตีเป็นเงินกีบ)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <SummaryCard title="ລາຍຮັບລວມ" value={convertedTotalsInLAK.incomeInLAK} currency="LAK" />
+                                <SummaryCard title="ຕົ້ນທຶນລວມ" value={convertedTotalsInLAK.costInLAK} currency="LAK" />
+                                <SummaryCard title="ກຳໄລລວມ" value={convertedTotalsInLAK.profitInLAK} currency="LAK" isProfit={true} />
+                            </div>
+                        </div>
+
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.lak)} currency="LAK" />
-                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.thb)} currency="THB" />
-                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.usd)} currency="USD" />
-                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.cny)} currency="CNY" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.lak} currency="LAK" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.thb} currency="THB" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.usd} currency="USD" />
+                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.cny} currency="CNY" />
                           </div>
                       </div>
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຈ່າຍ (Total Costs)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.lak)} currency="LAK" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.thb)} currency="THB" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.usd)} currency="USD" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.cny)} currency="CNY" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.lak} currency="LAK" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.thb} currency="THB" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.usd} currency="USD" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.cny} currency="CNY" />
                           </div>
                       </div>
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ກຳໄລ / ຂາດທຶນ (Profit / Loss)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.lak} currency="LAK" isProfit />
-                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.thb} currency="THB" isProfit />
-                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.usd} currency="USD" isProfit />
-                            <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />
+                            {printCurrencies.includes('LAK') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.lak} currency="LAK" isProfit />}
+                            {printCurrencies.includes('THB') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.thb} currency="THB" isProfit />}
+                            {printCurrencies.includes('USD') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.usd} currency="USD" isProfit />}
+                            {printCurrencies.includes('CNY') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />}
                           </div>
                       </div>
                         <ExchangeRateCard 
