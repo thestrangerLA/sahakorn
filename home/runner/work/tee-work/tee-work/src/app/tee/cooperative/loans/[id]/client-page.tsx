@@ -243,6 +243,7 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                     <TableRow>
                                         <TableHead>ສະກຸນເງິນ</TableHead>
                                         <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
+                                        <TableHead className="text-right">ກຳໄລ</TableHead>
                                         <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
                                         <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
                                         <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
@@ -251,12 +252,15 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                 <TableBody>
                                     {currencies.map(c => {
                                         const principal = loan.amount[c] || 0;
-                                        if (principal === 0 && (loan.repaymentAmount[c] || 0) === 0) return null;
+                                        const totalToRepay = totalLoanWithInterest[c] || 0;
+                                        const profit = totalToRepay - principal;
+                                        if (principal === 0 && totalToRepay === 0) return null;
                                         return (
                                             <TableRow key={c}>
                                                 <TableCell className="font-semibold uppercase">{c}</TableCell>
                                                 <TableCell className="text-right">{formatCurrency(principal)}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(totalLoanWithInterest[c] || 0)}</TableCell>
+                                                <TableCell className="text-right text-blue-600">{formatCurrency(profit)}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(totalToRepay)}</TableCell>
                                                 <TableCell className="text-right text-green-600">{formatCurrency(totalPaid[c] || 0)}</TableCell>
                                                 <TableCell className="text-right font-bold text-red-600">{formatCurrency(outstandingBalance[c] || 0)}</TableCell>
                                             </TableRow>
