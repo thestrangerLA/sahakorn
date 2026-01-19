@@ -1,6 +1,5 @@
 
-
-import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc, type Transaction as FirestoreTransaction } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
 import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction, ContractType } from '@/lib/types'
@@ -51,7 +50,8 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false, loanId }:
-  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string }
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string },
+  transaction?: FirestoreTransaction | WriteBatch
 ): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -92,16 +92,24 @@ export async function createJournalTransaction(
       delete debitData.loanId;
       delete creditData.loanId;
   }
+  
+  const debitRef = doc(transactionsCollectionRef);
+  const creditRef = doc(transactionsCollectionRef);
 
-  const batch = writeBatch(db);
-  batch.set(doc(transactionsCollectionRef), debitData);
-  batch.set(doc(transactionsCollectionRef), creditData);
-  await batch.commit();
+  if (transaction) {
+    transaction.set(debitRef, debitData);
+    transaction.set(creditRef, creditData);
+  } else {
+    const batch = writeBatch(db);
+    batch.set(debitRef, debitData);
+    batch.set(creditRef, creditData);
+    await batch.commit();
+  }
 
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}): Promise<string> {
+export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction?: FirestoreTransaction | WriteBatch): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
 
     let primaryAmount = { ...amount };
@@ -120,7 +128,7 @@ export async function recordUserAction({ action, amount, profit, description, da
         contractType: contractType,
         systemGenerated: true,
         loanId,
-    });
+    }, transaction);
     
     // Handle secondary entries (like for Murabaha profit)
     if (secondaryEntries && profit) {
@@ -129,7 +137,6 @@ export async function recordUserAction({ action, amount, profit, description, da
             if (entry.amountField === 'profit' && profit) {
                 secondaryAmount = { ...profit };
             }
-            // Add other amountField handlers if needed
             
             if (Object.values(secondaryAmount).some(v => v > 0)) {
                 await createJournalTransaction({
@@ -142,7 +149,7 @@ export async function recordUserAction({ action, amount, profit, description, da
                     contractType: contractType,
                     systemGenerated: true,
                     loanId
-                });
+                }, transaction);
             }
         }
     }

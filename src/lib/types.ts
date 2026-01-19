@@ -44,7 +44,8 @@ export type UserAction =
   | 'SELL_MURABAHA'
   | 'COLLECT_MURABAHA_RECEIVABLE'
   | 'PAY_GENERAL_EXPENSE'
-  | 'SET_CASH_OPENING_BALANCE';
+  | 'SET_CASH_OPENING_BALANCE'
+  | 'RECOGNIZE_MURABAHA_PROFIT';
 
 
 export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
@@ -310,9 +311,10 @@ export interface Loan {
   purpose: string;
   applicationDate: Date;
   durationYears: number;
-  status: 'active' | 'closed';
+  status: 'active' | 'closed' | 'settled';
   createdAt: Date;
   loanType?: IslamicLoanType;
+  outstandingBalance?: Omit<CurrencyValues, 'cny'>;
 }
 
 
@@ -324,6 +326,7 @@ export interface LoanRepayment {
   amountPaid: Omit<CurrencyValues, 'cny'>;
   principalPortion?: Omit<CurrencyValues, 'cny'>;
   profitPortion?: Omit<CurrencyValues, 'cny'>;
+  outstandingBalance?: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }

@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
@@ -20,8 +19,9 @@ import {
     writeBatch,
     QueryConstraint
 } from 'firebase/firestore';
-import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
+import { recordUserAction, deleteTransactionGroup, createJournalTransaction } from './cooperativeAccountingService';
 import { toDateSafe } from '@/lib/timestamp';
+import { v4 as uuidv4 } from 'uuid';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
@@ -269,71 +269,142 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
-  const loan = await getLoan(loanId);
-  if (!loan) throw new Error("Loan not found");
+export const addLoanRepayment = async (
+  loanId: string,
+  repayments: {
+    amount: Omit<CurrencyValues, 'cny'>;
+    date: Date;
+    note?: string;
+    paymentChannel?: 'cash' | 'bank_bcel';
+  }[]
+) => {
+  await runTransaction(db, async (tx) => {
+    const loanRef = doc(db, 'cooperativeLoans', loanId);
+    const loanSnap = await tx.get(loanRef);
+    if (!loanSnap.exists()) throw new Error('Loan not found');
 
-  const batch = writeBatch(db);
-  
-  const existingRepayments = await getLoanRepayments(loanId);
+    const loan = loanSnap.data() as Loan;
 
-  let principalRemaining = { ...loan.amount };
-  let profitRemaining = currencies.reduce((acc, c) => {
-      acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+    /* ---------- Calculate initial outstanding amounts ---------- */
+    let principalRemaining = { ...loan.amount };
+    let profitRemaining = currencies.reduce((acc, c) => {
+      acc[c] =
+        (loan.repaymentAmount?.[c] || 0) -
+        (loan.amount?.[c] || 0);
       return acc;
-  }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
+    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-  existingRepayments.forEach(repayment => {
+    /* ---------- Fetch previous repayments ---------- */
+    const q = query(
+      repaymentsCollectionRef,
+      where('loanId', '==', loanId)
+    );
+    const prevSnap = await getDocs(q);
+
+    prevSnap.forEach(doc => {
+      const r = doc.data() as LoanRepayment;
       currencies.forEach(c => {
-          principalRemaining[c] -= (repayment.principalPortion?.[c] || 0);
-          profitRemaining[c] -= (repayment.profitPortion?.[c] || 0);
+        principalRemaining[c] -= r.principalPortion?.[c] || 0;
+        profitRemaining[c] -= r.profitPortion?.[c] || 0;
       });
-  });
-
-  for (const r of repayments) {
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0 };
-    const principalPortion = { kip: 0, thb: 0, usd: 0 };
-    const profitPortion = { kip: 0, thb: 0, usd: 0 };
-
-    currencies.forEach(c => {
-      const paid = amountPaid[c] || 0;
-      if (paid <= 0) return;
-
-      const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
-      profitPortion[c] = profitUsed;
-
-      const principalUsed = paid - profitUsed;
-      principalPortion[c] = principalUsed;
-
-      profitRemaining[c] -= profitUsed;
-      principalRemaining[c] -= principalUsed;
     });
 
-    const transactionGroupId = await recordUserAction({
-      action: 'COLLECT_MURABAHA_RECEIVABLE',
-      amount: { ...principalPortion, cny: 0 },
-      profit: { ...profitPortion, cny: 0 },
-      description: `Repayment for Loan #${loan.loanCode}`,
-      date: r.date,
-      loanId,
-      paymentChannel: r.paymentChannel || 'cash'
-    });
+    /* ---------- Process new repayments ---------- */
+    for (const r of repayments) {
+      const amountPaid = {
+        kip: r.amount.kip || 0,
+        thb: r.amount.thb || 0,
+        usd: r.amount.usd || 0,
+      };
 
-    const newRepaymentRef = doc(repaymentsCollectionRef);
+      const principalPortion = { kip: 0, thb: 0, usd: 0 };
+      const profitPortion = { kip: 0, thb: 0, usd: 0 };
 
-    batch.set(newRepaymentRef, {
+      currencies.forEach(c => {
+        let paid = amountPaid[c];
+        if (paid <= 0) return;
+
+        /* Cut profit first */
+        const profitUsed = Math.min(
+          paid,
+          Math.max(0, profitRemaining[c])
+        );
+        profitPortion[c] = profitUsed;
+        profitRemaining[c] -= profitUsed;
+        paid -= profitUsed;
+
+        /* Cut principal */
+        const principalUsed = Math.min(
+          paid,
+          Math.max(0, principalRemaining[c])
+        );
+        principalPortion[c] = principalUsed;
+        principalRemaining[c] -= principalUsed;
+      });
+
+      /* ---------- Record Accounting (Receivable Collection) ---------- */
+      const transactionGroupId = await recordUserAction({
+        action: 'COLLECT_MURABAHA_RECEIVABLE',
+        amount: { ...amountPaid, cny: 0 },
+        profit: undefined, // Profit is not recognized here anymore
+        description: `Repayment for Loan #${loan.loanCode}`,
+        date: r.date,
+        loanId,
+        paymentChannel: r.paymentChannel || 'cash'
+      }, tx);
+
+      const repayRef = doc(repaymentsCollectionRef);
+
+      tx.set(repayRef, {
         loanId,
         transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
         amountPaid,
         principalPortion,
         profitPortion,
+        outstandingBalance: currencies.reduce((acc, c) => {
+          acc[c] = principalRemaining[c] + profitRemaining[c];
+          return acc;
+        }, { kip: 0, thb: 0, usd: 0 }),
         note: r.note || '',
         createdAt: serverTimestamp(),
+      });
+    }
+
+    /* ---------- Update final loan balance & recognize profit if settled ---------- */
+    const finalOutstandingBalance = currencies.reduce((acc, c) => {
+      acc[c] = principalRemaining[c] + profitRemaining[c];
+      return acc;
+    }, { kip: 0, thb: 0, usd: 0 });
+
+    const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    const wasAlreadySettled = loan.status === 'settled';
+
+    tx.update(loanRef, {
+      outstandingBalance: finalOutstandingBalance,
+      status: isNowSettled ? 'settled' : 'active',
     });
-  }
-  
-  await batch.commit();
+
+    if (isNowSettled && !wasAlreadySettled) {
+        const totalProfit = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+
+        if (Object.values(totalProfit).some(v => v > 0)) {
+            await createJournalTransaction({
+                debitAccountId: 'deferred_murabaha_income',
+                creditAccountId: 'sales_income',
+                amount: totalProfit,
+                description: `Recognize full profit for settled Loan #${loan.loanCode}`,
+                date: repayments[repayments.length - 1].date,
+                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
+                systemGenerated: true,
+                loanId,
+            }, tx);
+        }
+    }
+  });
 };
 
 
@@ -364,19 +435,3 @@ export const updateLoanRepayment = async (repaymentId: string, updatedFields: Pa
     }
     await updateDoc(repaymentDocRef, dataToUpdate);
 };
-
-async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
-  const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
-  const querySnapshot = await getDocs(q);
-  const repayments: LoanRepayment[] = [];
-  querySnapshot.forEach(doc => {
-    const data = doc.data();
-    repayments.push({
-      id: doc.id,
-      ...data,
-      repaymentDate: toDateSafe(data.repaymentDate) || new Date(),
-      createdAt: toDateSafe(data.createdAt) || new Date(),
-    } as LoanRepayment);
-  });
-  return repayments;
-}
