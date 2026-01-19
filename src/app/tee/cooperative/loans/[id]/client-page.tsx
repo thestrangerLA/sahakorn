@@ -29,6 +29,7 @@ const formatCurrency = (value: number) => {
 };
 
 const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
 
 
 type NewRepayment = {
@@ -74,74 +75,48 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         };
     }, [initialLoan?.id, member]);
 
-     const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
-        const paid: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-        const schedule: any[] = [];
-        
-        if (loan) {
-            // Sort repayments by date to process them chronologically
-            const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
-            
-            const totalProfitOnLoan = currencies.reduce((acc, c) => {
-                acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-                return acc;
-            }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
-
-            let cumulativePrincipalPaid = { kip: 0, thb: 0, usd: 0 };
-            let cumulativeProfitPaid = { kip: 0, thb: 0, usd: 0 };
-            let runningBalance = { ...(loan.repaymentAmount) };
-
-            sortedRepayments.forEach((r) => {
-                 // For display, we re-calculate portions based on the state *before* this repayment
-                 const principalPortion = { kip: 0, thb: 0, usd: 0 };
-                 const profitPortion = { kip: 0, thb: 0, usd: 0 };
-
-                 currencies.forEach(c => {
-                    const paymentAmount = r.amountPaid?.[c] || 0;
-                    
-                    const profitDueBeforeThisPayment = totalProfitOnLoan[c] - cumulativeProfitPaid[c];
-                    const principalDueBeforeThisPayment = (loan.amount[c] || 0) - cumulativePrincipalPaid[c];
-
-                    const calculatedProfitPortion = Math.min(paymentAmount, Math.max(0, profitDueBeforeThisPayment));
-                    profitPortion[c] = calculatedProfitPortion;
-                    
-                    const remainingPayment = paymentAmount - calculatedProfitPortion;
-                    
-                    const calculatedPrincipalPortion = Math.min(remainingPayment, Math.max(0, principalDueBeforeThisPayment));
-                    principalPortion[c] = calculatedPrincipalPortion;
-
-                    // Update cumulative totals for the next iteration in the loop
-                    cumulativePrincipalPaid[c] += calculatedPrincipalPortion;
-                    cumulativeProfitPaid[c] += calculatedProfitPortion;
-
-                    // Update total paid and running balance for the final summary
-                    paid[c] += paymentAmount;
-                    runningBalance[c] -= paymentAmount;
-                });
-                
-                // Add the calculated portions to the repayment item for rendering
-                schedule.push({
-                    ...r,
-                    principalPortion,
-                    profitPortion,
-                    outstandingBalance: { ...runningBalance },
-                });
-            });
+    const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
+        if (!loan) {
+            return {
+                totalPaid: { ...initialCurrencyValues },
+                outstandingBalance: { ...initialCurrencyValues },
+                totalLoanWithInterest: { ...initialCurrencyValues },
+                repaymentSchedule: []
+            };
         }
         
-        // Calculate final outstanding balance after all repayments
-        const outstanding = loan ? currencies.reduce((acc, c) => {
-            acc[c] = (loan.repaymentAmount[c] || 0) - paid[c];
-            if (acc[c] < 0) acc[c] = 0; // Prevent negative balance
+        const paid = repayments.reduce((acc, r) => {
+            currencies.forEach(c => {
+                acc[c] += r.amountPaid?.[c] || 0;
+            });
             return acc;
-        }, { kip: 0, thb: 0, usd: 0 }) : { kip: 0, thb: 0, usd: 0 };
-
-        // Sort schedule for display (newest first)
+        }, { ...initialCurrencyValues });
+    
+        const outstanding = currencies.reduce((acc, c) => {
+            const balance = (loan.repaymentAmount[c] || 0) - paid[c];
+            acc[c] = Math.abs(balance) < 0.01 ? 0 : balance; // Handle floating point inaccuracies
+            return acc;
+        }, { ...initialCurrencyValues });
+        
+        // Calculate running balance for display
+        let runningBalance = { ...(loan.repaymentAmount) };
+        const scheduleWithBalances = [...repayments]
+            .sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime()) // Oldest first
+            .map(repayment => {
+                const outstandingForThisRow = { ...runningBalance };
+                 currencies.forEach(c => {
+                    runningBalance[c] -= (repayment.amountPaid?.[c] || 0);
+                });
+                // We return the outstanding *before* this payment for the "outstanding" column in that row
+                return { ...repayment, outstandingBalance: outstandingForThisRow };
+            })
+            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime()); // Newest first for display
+    
         return { 
             totalPaid: paid, 
             outstandingBalance: outstanding, 
-            totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0 },
-            repaymentSchedule: schedule.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime())
+            totalLoanWithInterest: loan.repaymentAmount,
+            repaymentSchedule: scheduleWithBalances,
         };
     }, [repayments, loan]);
 
@@ -381,7 +356,8 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                                 </TableCell>
                                                  <TableCell>
                                                     {currencies.map(c => (
-                                                        (loan.amount?.[c] > 0) && <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>
+                                                        (loan.amount?.[c] > 0 || (r.outstandingBalance && r.outstandingBalance[c])) && 
+                                                        <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>
                                                     ))}
                                                 </TableCell>
                                                 <TableCell className="text-center">
@@ -420,4 +396,3 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         </div>
     );
 }
-
