@@ -117,8 +117,8 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                     const profitPaid = Math.min(payment, Math.max(0, profitRemaining[c]));
                     profitPortion[c] = profitPaid;
                     
-                    const principalPaid = payment - profitPaid;
-                    principalPortion[c] = principalPaid;
+                    const principalUsed = payment - profitPaid;
+                    principalPortion[c] = principalUsed;
 
                     profitRemaining[c] -= profitPaid;
                     principalRemaining[c] -= principalPaid;
@@ -367,9 +367,10 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                                     ))}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {currencies.map(c => (
-                                                        (r.principalPortion?.[c] > 0) && <div key={c}>{formatCurrency(r.principalPortion[c])} {c.toUpperCase()}</div>
-                                                    ))}
+                                                    {currencies.map(c => {
+                                                        const principal = r.principalPortion?.[c] ?? 0;
+                                                        return principal > 0 ? <div key={c}>{formatCurrency(principal)} {c.toUpperCase()}</div> : null;
+                                                    })}
                                                 </TableCell>
                                                 <TableCell>
                                                     {currencies.map(c => {
