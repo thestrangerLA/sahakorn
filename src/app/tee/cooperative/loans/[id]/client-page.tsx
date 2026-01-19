@@ -383,3 +383,5 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         </div>
     );
 }
+
+    
