@@ -275,7 +275,6 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
 
   const batch = writeBatch(db);
   
-  // Get current state of repayments to correctly calculate remaining principal and profit
   const existingRepayments = await getLoanRepayments(loanId);
 
   let principalRemaining = { ...loan.amount };
@@ -284,7 +283,6 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
       return acc;
   }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-  // Subtract what has already been paid from existing repayments
   existingRepayments.forEach(repayment => {
       currencies.forEach(c => {
           principalRemaining[c] -= (repayment.principalPortion?.[c] || 0);
@@ -301,15 +299,14 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
       const paid = amountPaid[c] || 0;
       if (paid <= 0) return;
 
-      const profitToPay = Math.min(paid, Math.max(0, profitRemaining[c]));
-      profitPortion[c] = profitToPay;
+      const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
+      profitPortion[c] = profitUsed;
 
-      const principalToPay = paid - profitToPay;
-      principalPortion[c] = principalToPay;
+      const principalUsed = paid - profitUsed;
+      principalPortion[c] = principalUsed;
 
-      // Update remaining amounts for the next repayment in the loop
-      profitRemaining[c] -= profitToPay;
-      principalRemaining[c] -= principalToPay;
+      profitRemaining[c] -= profitUsed;
+      principalRemaining[c] -= principalUsed;
     });
 
     const transactionGroupId = await recordUserAction({

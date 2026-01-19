@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -103,7 +102,7 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         let profitRemaining = currencies.reduce((acc, c) => {
             acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
             return acc;
-        }, { ...initialCurrencyValues });
+        }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
         const scheduleWithBalances = [...repayments]
             .sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime()) // Oldest first
@@ -373,9 +372,10 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                                     ))}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {currencies.map(c => (
-                                                        (r.profitPortion?.[c] > 0) && <div key={c}>{formatCurrency(r.profitPortion[c])} {c.toUpperCase()}</div>
-                                                    ))}
+                                                    {currencies.map(c => {
+                                                        const profit = r.profitPortion?.[c] ?? 0;
+                                                        return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
+                                                    })}
                                                 </TableCell>
                                                  <TableCell>
                                                     {currencies.map(c => (
