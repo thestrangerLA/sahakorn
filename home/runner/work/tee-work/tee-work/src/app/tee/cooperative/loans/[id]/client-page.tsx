@@ -340,8 +340,8 @@ export default function LoanDetailPageClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ວັນທີ</TableHead>
-                    <TableHead>ຈ່າຍ</TableHead>
+                    <TableHead>ວັນທີຈ່າຍ</TableHead>
+                    <TableHead>ຍອດຈ່າຍ</TableHead>
                     <TableHead>ເງິນຕົ້ນ</TableHead>
                     <TableHead>ກຳໄລ</TableHead>
                     <TableHead>ຄົງເຫຼືອ</TableHead>
@@ -357,9 +357,9 @@ export default function LoanDetailPageClient({
                       <TableCell>
                         {currencies.map(
                           (c) =>
-                            r.amountPaid[c] > 0 && (
+                            (r.amountPaid?.[c] ?? 0) > 0 && (
                               <div key={c}>
-                                {formatCurrency(r.amountPaid[c])}{" "}
+                                {formatCurrency(r.amountPaid?.[c] ?? 0)}{" "}
                                 {c.toUpperCase()}
                               </div>
                             )
@@ -367,36 +367,37 @@ export default function LoanDetailPageClient({
                       </TableCell>
                       <TableCell>
                         {currencies.map(
-                          (c) =>
-                            (r.principalPortion?.[c] ?? 0) > 0 && (
+                          (c) => {
+                            const principal = r.principalPortion?.[c] ?? 0;
+                            return principal > 0 ? (
                               <div key={c}>
-                                {formatCurrency(
-                                  r.principalPortion?.[c]
-                                )}{" "}
+                                {formatCurrency(principal)}{" "}
                                 {c.toUpperCase()}
                               </div>
-                            )
+                            ) : null;
+                          }
                         )}
                       </TableCell>
                       <TableCell>
                         {currencies.map(
-                          (c) =>
-                            (r.profitPortion?.[c] ?? 0) > 0 && (
+                          (c) => {
+                            const profit = r.profitPortion?.[c] ?? 0;
+                            return profit > 0 ? (
                               <div key={c}>
-                                {formatCurrency(
-                                  r.profitPortion?.[c]
-                                )}{" "}
+                                {formatCurrency(profit)}{" "}
                                 {c.toUpperCase()}
                               </div>
-                            )
+                             ) : null;
+                          }
                         )}
                       </TableCell>
                       <TableCell>
                         {currencies.map((c) => (
-                          <div key={c}>
-                            {formatCurrency(r.outstandingBalance?.[c])}{" "}
-                            {c.toUpperCase()}
-                          </div>
+                           (loan.amount?.[c] ?? 0) > 0 &&
+                            <div key={c}>
+                                {formatCurrency(r.outstandingBalance?.[c] ?? 0)}{" "}
+                                {c.toUpperCase()}
+                            </div>
                         ))}
                       </TableCell>
                       <TableCell className="text-center">

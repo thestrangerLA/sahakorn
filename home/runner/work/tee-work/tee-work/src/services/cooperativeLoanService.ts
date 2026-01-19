@@ -19,8 +19,9 @@ import {
     writeBatch,
     QueryConstraint
 } from 'firebase/firestore';
-import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
+import { recordUserAction, deleteTransactionGroup, createJournalTransaction } from './cooperativeAccountingService';
 import { toDateSafe } from '@/lib/timestamp';
+import { v4 as uuidv4 } from 'uuid';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
@@ -336,13 +337,13 @@ export const addLoanRepayment = async (
       /* ---------- Record Accounting ---------- */
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
-        amount: { ...principalPortion, cny: 0 },
-        profit: { ...profitPortion, cny: 0 },
+        amount: { ...amountPaid, cny: 0 },
+        profit: undefined,
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
         paymentChannel: r.paymentChannel || 'cash',
-      });
+      }, tx);
 
       const repayRef = doc(repaymentsCollectionRef);
 
@@ -362,18 +363,39 @@ export const addLoanRepayment = async (
       });
     }
 
-    /* ---------- Update final loan balance ---------- */
+    /* ---------- Update final loan balance & recognize profit if settled ---------- */
+    const finalOutstandingBalance = currencies.reduce((acc, c) => {
+      acc[c] = principalRemaining[c] + profitRemaining[c];
+      return acc;
+    }, { kip: 0, thb: 0, usd: 0 });
+
+    const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    const wasAlreadySettled = loan.status === 'settled';
+
     tx.update(loanRef, {
-      outstandingBalance: currencies.reduce((acc, c) => {
-        acc[c] = principalRemaining[c] + profitRemaining[c];
-        return acc;
-      }, { kip: 0, thb: 0, usd: 0 }),
-      status:
-        Object.values(principalRemaining).every(v => v <= 0) &&
-        Object.values(profitRemaining).every(v => v <= 0)
-          ? 'settled'
-          : 'active',
+      outstandingBalance: finalOutstandingBalance,
+      status: isNowSettled ? 'settled' : 'active',
     });
+
+    if (isNowSettled && !wasAlreadySettled) {
+        const totalProfit = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+
+        if (Object.values(totalProfit).some(v => v > 0)) {
+            await createJournalTransaction({
+                debitAccountId: 'deferred_murabaha_income',
+                creditAccountId: 'sales_income',
+                amount: totalProfit,
+                description: `Recognize full profit for settled Loan #${loan.loanCode}`,
+                date: repayments[repayments.length - 1].date,
+                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
+                systemGenerated: true,
+                loanId,
+            }, tx);
+        }
+    }
   });
 };
 

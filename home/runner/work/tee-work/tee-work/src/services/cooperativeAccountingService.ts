@@ -1,6 +1,5 @@
 
-
-import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc, updateDoc, type Transaction as FirestoreTransaction } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
 import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction, ContractType } from '@/lib/types'
@@ -51,7 +50,8 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false, loanId }:
-  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string }
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string },
+  transaction?: FirestoreTransaction | WriteBatch
 ): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -69,6 +69,7 @@ export async function createJournalTransaction(
     contractType,
     systemGenerated,
     loanId,
+    currentValue: { ...initialCurrencyValues },
   };
 
   const creditData: Omit<Transaction, 'id'> & { createdAt: any } = {
@@ -84,28 +85,37 @@ export async function createJournalTransaction(
     contractType,
     systemGenerated,
     loanId,
+    currentValue: { ...initialCurrencyValues },
   };
   
   if (!loanId) {
       delete debitData.loanId;
       delete creditData.loanId;
   }
+  
+  const debitRef = doc(transactionsCollectionRef);
+  const creditRef = doc(transactionsCollectionRef);
 
-  const batch = writeBatch(db);
-  batch.set(doc(transactionsCollectionRef), debitData);
-  batch.set(doc(transactionsCollectionRef), creditData);
-  await batch.commit();
+  if (transaction) {
+    transaction.set(debitRef, debitData);
+    transaction.set(creditRef, creditData);
+  } else {
+    const batch = writeBatch(db);
+    batch.set(debitRef, debitData);
+    batch.set(creditRef, creditData);
+    await batch.commit();
+  }
 
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}): Promise<string> {
+export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction?: FirestoreTransaction | WriteBatch): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
 
-    let primaryAmount = { ...amount };
-     if (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit) {
-        primaryAmount = sumCurrency(amount, profit);
-    }
+    // For repayments, the `amount` is principal, `profit` is profit. The total cash received is the sum.
+    const primaryAmount = (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit) 
+        ? sumCurrency(amount, profit) 
+        : amount;
     
     // Primary entry
     const mainTransactionGroupId = await createJournalTransaction({
@@ -118,32 +128,11 @@ export async function recordUserAction({ action, amount, profit, description, da
         contractType: contractType,
         systemGenerated: true,
         loanId,
-    });
+    }, transaction);
     
-    // Handle secondary entries (like for Murabaha profit)
-    if (secondaryEntries && profit) {
-        for (const entry of secondaryEntries) {
-            let secondaryAmount = { ...initialCurrencyValues };
-            if (entry.amountField === 'profit' && profit) {
-                secondaryAmount = { ...profit };
-            }
-            // Add other amountField handlers if needed
-            
-            if (Object.values(secondaryAmount).some(v => v > 0)) {
-                await createJournalTransaction({
-                    debitAccountId: entry.debitAccountId,
-                    creditAccountId: entry.creditAccountId,
-                    amount: secondaryAmount,
-                    description: `(Auto) ${description}`,
-                    date,
-                    userAction: action,
-                    contractType: contractType,
-                    systemGenerated: true,
-                    loanId
-                });
-            }
-        }
-    }
+    // This is no longer needed here as profit recognition is handled when the loan is settled.
+    // if (secondaryEntries && profit) { ... }
+
     return mainTransactionGroupId;
 }
 
@@ -192,7 +181,8 @@ export const listenToCooperativeTransactions = (
                 id: doc.id, 
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amount: data.amount || { ...initialCurrencyValues },
+                currentValue: data.currentValue || { ...initialCurrencyValues },
             } as Transaction);
         });
         callback(transactions);
@@ -223,8 +213,9 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
         const multiplier = tx.type === 'debit' ? 1 : -1;
         
         currencyKeys.forEach(currencyKey => {
-            if (tx.amount && tx.amount[currencyKey]) {
-                balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
+            const amount = tx.amount as CurrencyValues;
+            if (amount && amount[currencyKey]) {
+                balances[tx.accountId][currencyKey] += (amount[currencyKey] || 0) * multiplier;
             }
         });
     });

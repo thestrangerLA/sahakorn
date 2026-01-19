@@ -1,5 +1,4 @@
 
-
 import type { UserAction, ContractType, CurrencyValues } from '@/lib/types';
 
 type AutoEntry = {
@@ -32,6 +31,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
   PAY_GENERAL_EXPENSE: 'SALE',
   SET_CASH_OPENING_BALANCE: 'CAPITAL',
   PURCHASE_FIXED_ASSET: 'SALE',
+  RECOGNIZE_MURABAHA_PROFIT: 'MURABAHA',
 };
 
 /**
@@ -108,7 +108,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     case 'SELL_MURABAHA':
       return {
         debitAccountId: 'murabaha_receivable',
-        creditAccountId: 'inventory', 
+        creditAccountId: 'cash', 
         contractType,
         shariahCompliance: {
           isRibaFree: true,
@@ -135,14 +135,20 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           requiresApproval: false,
           requiresContract: false,
           notes: 'Collection of Murabaha payment. Late payments do NOT incur additional charges.'
-        },
-        secondaryEntries: [
-          {
-            debitAccountId: 'deferred_murabaha_income',
-            creditAccountId: 'sales_income',
-            amountField: 'profit'
-          }
-        ]
+        }
+      };
+
+    case 'RECOGNIZE_MURABAHA_PROFIT':
+      return {
+        debitAccountId: 'deferred_murabaha_income',
+        creditAccountId: 'sales_income',
+        contractType: 'MURABAHA',
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: false,
+          requiresContract: false,
+          notes: 'Recognizing deferred profit as income upon loan settlement.'
+        }
       };
 
     // ═══════════════════════════════════════════════════════════
