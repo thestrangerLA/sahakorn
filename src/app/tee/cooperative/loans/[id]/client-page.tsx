@@ -75,13 +75,12 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         };
     }, [initialLoan?.id, member]);
 
-     const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
+     const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
         if (!loan) {
             return {
                 totalPaid: { ...initialCurrencyValues },
                 outstandingBalance: { ...initialCurrencyValues },
                 totalLoanWithInterest: { ...initialCurrencyValues },
-                repaymentSchedule: []
             };
         }
         
@@ -92,53 +91,12 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
             return acc;
         }, { ...initialCurrencyValues });
     
-        const outstanding = currencies.reduce((acc, c) => {
-            const balance = (loan.repaymentAmount[c] || 0) - paid[c];
-            acc[c] = Math.abs(balance) < 0.01 ? 0 : balance; // Handle floating point inaccuracies
-            return acc;
-        }, { ...initialCurrencyValues });
+        const outstanding = loan.outstandingBalance ?? { ...initialCurrencyValues };
         
-        let principalRemaining = { ...loan.amount };
-        let profitRemaining = currencies.reduce((acc, c) => {
-            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-            return acc;
-        }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
-
-        const scheduleWithBalances = [...repayments]
-            .sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime()) // Oldest first
-            .map(repayment => {
-                const principalPortion = { ...initialCurrencyValues };
-                const profitPortion = { ...initialCurrencyValues };
-                
-                currencies.forEach(c => {
-                    const payment = repayment.amountPaid[c] || 0;
-                    if (payment <= 0) return;
-
-                    const profitPaid = Math.min(payment, Math.max(0, profitRemaining[c]));
-                    profitPortion[c] = profitPaid;
-                    
-                    const principalUsed = payment - profitPaid;
-                    principalPortion[c] = principalUsed;
-
-                    profitRemaining[c] -= profitPaid;
-                    principalRemaining[c] -= principalPaid;
-                });
-                
-                const outstandingAfterPayment = currencies.reduce((acc, c) => {
-                    acc[c] = principalRemaining[c] + profitRemaining[c];
-                    return acc;
-                }, {...initialCurrencyValues});
-
-
-                return { ...repayment, outstandingBalance: outstandingAfterPayment, principalPortion, profitPortion };
-            })
-            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime()); // Newest first for display
-    
         return { 
             totalPaid: paid, 
             outstandingBalance: outstanding, 
             totalLoanWithInterest: loan.repaymentAmount,
-            repaymentSchedule: scheduleWithBalances,
         };
     }, [repayments, loan]);
 
@@ -357,14 +315,15 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {repaymentSchedule.length > 0 ? (
-                                        repaymentSchedule.map((r) => (
+                                    {repayments.length > 0 ? (
+                                        repayments.map((r) => (
                                             <TableRow key={r.id}>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
-                                                    {currencies.map(c => (
-                                                        (r.amountPaid?.[c] > 0) && <div key={c}>{formatCurrency(r.amountPaid[c])} {c.toUpperCase()}</div>
-                                                    ))}
+                                                    {currencies.map(c => {
+                                                        const amount = r.amountPaid?.[c] ?? 0;
+                                                        return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                    })}
                                                 </TableCell>
                                                 <TableCell>
                                                     {currencies.map(c => {
@@ -379,10 +338,13 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
                                                     })}
                                                 </TableCell>
                                                  <TableCell>
-                                                    {currencies.map(c => (
-                                                        (loan.amount?.[c] > 0 || (r.outstandingBalance && r.outstandingBalance[c])) && 
-                                                        <div key={c}>{formatCurrency(r.outstandingBalance[c])} {c.toUpperCase()}</div>
-                                                    ))}
+                                                    {currencies.map(c => {
+                                                         const outstanding = r.outstandingBalance?.[c];
+                                                         if ((loan.amount?.[c] || 0) > 0 || (outstanding !== undefined && outstanding !== null)) {
+                                                            return <div key={c}>{formatCurrency(outstanding ?? 0)} {c.toUpperCase()}</div>
+                                                         }
+                                                         return null;
+                                                    })}
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
@@ -420,4 +382,3 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
         </div>
     );
 }
-

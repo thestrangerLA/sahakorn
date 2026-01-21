@@ -288,9 +288,7 @@ export const addLoanRepayment = async (
     /* ---------- Calculate initial outstanding amounts ---------- */
     let principalRemaining = { ...loan.amount };
     let profitRemaining = currencies.reduce((acc, c) => {
-      acc[c] =
-        (loan.repaymentAmount?.[c] || 0) -
-        (loan.amount?.[c] || 0);
+      acc[c] = (loan.repaymentAmount?.[c] || 0) - (loan.amount?.[c] || 0);
       return acc;
     }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
@@ -324,33 +322,27 @@ export const addLoanRepayment = async (
         let paid = amountPaid[c];
         if (paid <= 0) return;
 
-        /* Cut profit first */
-        const profitUsed = Math.min(
-          paid,
-          Math.max(0, profitRemaining[c])
-        );
+        /* Pay off profit first */
+        const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
         profitPortion[c] = profitUsed;
         profitRemaining[c] -= profitUsed;
         paid -= profitUsed;
 
-        /* Cut principal */
-        const principalUsed = Math.min(
-          paid,
-          Math.max(0, principalRemaining[c])
-        );
+        /* Then pay off principal */
+        const principalUsed = Math.min(paid, Math.max(0, principalRemaining[c]));
         principalPortion[c] = principalUsed;
         principalRemaining[c] -= principalUsed;
       });
 
-      /* ---------- Record Accounting (Receivable Collection) ---------- */
+      /* ---------- Record Accounting ---------- */
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
-        amount: { ...amountPaid, cny: 0 },
-        profit: undefined, // Profit is not recognized here anymore
+        amount: { ...principalPortion, cny: 0 },
+        profit: { ...profitPortion, cny: 0 },
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
-        paymentChannel: r.paymentChannel || 'cash'
+        paymentChannel: r.paymentChannel || 'cash',
       }, tx);
 
       const repayRef = doc(repaymentsCollectionRef);
@@ -371,39 +363,18 @@ export const addLoanRepayment = async (
       });
     }
 
-    /* ---------- Update final loan balance & recognize profit if settled ---------- */
+    /* ---------- Update final loan balance & status ---------- */
     const finalOutstandingBalance = currencies.reduce((acc, c) => {
       acc[c] = principalRemaining[c] + profitRemaining[c];
       return acc;
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
-    const wasAlreadySettled = loan.status === 'settled';
-
+    
     tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
       status: isNowSettled ? 'settled' : 'active',
     });
-
-    if (isNowSettled && !wasAlreadySettled) {
-        const totalProfit = currencies.reduce((acc, c) => {
-            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-            return acc;
-        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
-
-        if (Object.values(totalProfit).some(v => v > 0)) {
-            await createJournalTransaction({
-                debitAccountId: 'deferred_murabaha_income',
-                creditAccountId: 'sales_income',
-                amount: totalProfit,
-                description: `Recognize full profit for settled Loan #${loan.loanCode}`,
-                date: repayments[repayments.length - 1].date,
-                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
-                systemGenerated: true,
-                loanId,
-            }, tx);
-        }
-    }
   });
 };
 
