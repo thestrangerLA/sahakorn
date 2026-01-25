@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building, Landmark, Wallet, MinusCircle } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building, Landmark, Wallet, MinusCircle, Combine } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -117,9 +116,11 @@ export default function CooperativeAccountingPage() {
     const [filterAccountId, setFilterAccountId] = useState<string>('all');
     const [filterDescription, setFilterDescription] = useState('');
 
-    // Edit BCEL Dialog State
+    // Edit Dialogs State
     const [isEditBcelOpen, setEditBcelOpen] = useState(false);
     const [bcelEditValues, setBcelEditValues] = useState<CurrencyValues>({ ...initialCurrencyValues });
+    const [isEditTransferOpen, setEditTransferOpen] = useState(false);
+    const [transferEditValues, setTransferEditValues] = useState<CurrencyValues>({ ...initialCurrencyValues });
 
     useEffect(() => {
         const unsubscribeTxs = listenToCooperativeTransactions(setTransactions);
@@ -143,6 +144,14 @@ export default function CooperativeAccountingPage() {
         setAccountBalances(balances);
     }, [transactions]);
     
+    const totalBcel = useMemo(() => {
+        if (!summary) return { ...initialCurrencyValues };
+        return currencies.reduce((acc, curr) => {
+            acc[curr] = (summary.bankAccount?.[curr] || 0) + (summary.transfer?.[curr] || 0);
+            return acc;
+        }, { ...initialCurrencyValues });
+    }, [summary]);
+
     const totalMemberDeposits = useMemo(() => {
         return members.reduce((total, member) => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
@@ -190,13 +199,16 @@ export default function CooperativeAccountingPage() {
     }, [transactions]);
 
     const totalAssets = useMemo(() => {
-        const assetAccounts = defaultAccounts.filter(acc => acc.type === 'asset' && acc.id !== 'bank_bcel');
+        const assetAccounts = defaultAccounts.filter(acc => acc.type === 'asset');
         const total = { ...initialCurrencyValues };
 
         assetAccounts.forEach(acc => {
             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
             
-            if (acc.id === 'murabaha_receivable') {
+            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
+                balances = summary.bankAccount;
+            }
+             if (acc.id === 'murabaha_receivable') {
                 balances = totalMurabahaReceivable;
             }
             if (acc.id === 'fixed_assets') {
@@ -207,9 +219,14 @@ export default function CooperativeAccountingPage() {
                 total[c] += balances[c] || 0;
             });
         });
+        
+        // Add `transfer` to total assets as it represents another cash-like asset
+        currencies.forEach(c => {
+            total[c] += summary?.transfer?.[c] || 0;
+        });
 
         return total;
-    }, [accountBalances, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
+    }, [accountBalances, summary, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
 
     const cashVsBankDifference = useMemo(() => {
         const cashBalances = accountBalances['cash'] || { ...initialCurrencyValues };
@@ -333,6 +350,16 @@ export default function CooperativeAccountingPage() {
             toast({ title: "Error saving BCEL balance", variant: "destructive" });
         }
     };
+    
+    const handleSaveTransfer = async () => {
+        try {
+            await updateCooperativeAccountSummary({ transfer: transferEditValues });
+            toast({ title: "ອັບເດດຍອດບັນຊີ BCEL ເງິນສົດ ສຳເລັດ" });
+            setEditTransferOpen(false);
+        } catch (error) {
+            toast({ title: "Error saving BCEL cash balance", variant: "destructive" });
+        }
+    };
 
 
     return (
@@ -355,7 +382,7 @@ export default function CooperativeAccountingPage() {
                 </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-10">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-12">
                     <div className="xl:col-span-2">
                         <SummaryCard 
                             title="ລວມສິນຊັບທັງໝົດ" 
@@ -370,23 +397,45 @@ export default function CooperativeAccountingPage() {
                         icon={<MinusCircle className="h-4 w-4 text-indigo-500" />}
                         className="bg-indigo-50 border-indigo-200"
                     />
+
+                    <SummaryCard 
+                        title="ເງິນສົດ (Cash)" 
+                        balances={accountBalances['cash'] || { ...initialCurrencyValues }} 
+                        icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+                    />
+                    
+                    <SummaryCard 
+                        title="ບັນຊີ BCEL" 
+                        balances={summary?.bankAccount || { ...initialCurrencyValues }}
+                        icon={<Landmark className="h-4 w-4 text-muted-foreground" />}
+                        onClick={() => {
+                            setBcelEditValues(summary?.bankAccount || initialCurrencyValues);
+                            setEditBcelOpen(true);
+                        }}
+                    />
+
+                    <SummaryCard 
+                        title="ບັນຊີ BCEL ເງິນສົດ" 
+                        balances={summary?.transfer || { ...initialCurrencyValues }}
+                        icon={<Wallet className="h-4 w-4 text-primary" />}
+                        onClick={() => {
+                            setTransferEditValues(summary?.transfer || initialCurrencyValues);
+                            setEditTransferOpen(true);
+                        }}
+                    />
+                     <SummaryCard 
+                        title="ລວມ BCEL" 
+                        balances={totalBcel}
+                        icon={<Combine className="h-5 w-5 text-blue-600" />}
+                        className="bg-blue-50 border-blue-200"
+                    />
+
                     {accounts
-                        .filter(a => a.type === 'asset' || a.id === 'share_capital')
+                        .filter(a => a.type === 'asset' && !['cash', 'bank_bcel'].includes(a.id))
                         .map(acc => {
                             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
                             let icon = <Users className="h-4 w-4 text-muted-foreground" />;
-                            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
-                                balances = summary.bankAccount;
-                                icon = <Landmark className="h-4 w-4 text-muted-foreground" />;
-                            }
-                             if (acc.id === 'cash') {
-                                icon = <Wallet className="h-4 w-4 text-muted-foreground" />;
-                            }
-                             if (acc.id === 'share_capital') {
-                                balances = totalMemberDeposits;
-                                icon = <Briefcase className="h-4 w-4 text-muted-foreground" />;
-                            }
-                            if (acc.id === 'murabaha_receivable') {
+                             if (acc.id === 'murabaha_receivable') {
                                 balances = totalMurabahaReceivable;
                             }
                              if (acc.id === 'investments') {
@@ -396,20 +445,22 @@ export default function CooperativeAccountingPage() {
                                 balances = totalFixedAssetsCurrentValue;
                                 icon = <Building className="h-4 w-4 text-muted-foreground" />;
                             }
-
                             return (
                             <SummaryCard 
                                 key={acc.id} 
                                 title={acc.name} 
                                 balances={balances} 
                                 icon={icon}
-                                onClick={
-                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
-                                }
                                 href={acc.href}
                             />
                         )})
                     }
+                     <SummaryCard 
+                        title="ທຶນຮຸ້ນ (Share Capital)"
+                        balances={totalMemberDeposits} 
+                        icon={<Briefcase className="h-4 w-4 text-muted-foreground" />}
+                        href="/tee/cooperative/members"
+                    />
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
@@ -594,7 +645,27 @@ export default function CooperativeAccountingPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+             <Dialog open={isEditTransferOpen} onOpenChange={setEditTransferOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>ແກ້ໄຂຍອດເງິນໃນບັນຊີ BCEL ເງິນສົດ</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                        {currencies.map(c => (
+                            <div key={c} className="grid gap-2">
+                                <Label htmlFor={`transfer-${c}`}>{c.toUpperCase()}</Label>
+                                <Input id={`transfer-${c}`} type="number" value={transferEditValues[c]} onChange={e => setTransferEditValues(prev => prev ? ({...prev, [c]: Number(e.target.value) || 0}) : null )} />
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditTransferOpen(false)}>ຍົກເລີກ</Button>
+                        <Button onClick={handleSaveTransfer}>ບັນທຶກ</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+
 
