@@ -284,30 +284,26 @@ export const addLoanRepayment = async (
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
+    const wasAlreadySettled = loan.status === 'settled'; // Check status before changes
 
-    /* ---------- Calculate initial outstanding amounts ---------- */
     let principalRemaining = { ...loan.amount };
     let profitRemaining = currencies.reduce((acc, c) => {
       acc[c] = (loan.repaymentAmount?.[c] || 0) - (loan.amount?.[c] || 0);
       return acc;
     }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-    /* ---------- Fetch previous repayments ---------- */
-    const q = query(
-      repaymentsCollectionRef,
-      where('loanId', '==', loanId)
-    );
-    const prevSnap = await getDocs(q);
+    // This is a simplified way to get previous repayments inside a transaction
+    // by using the aggregated data on the loan doc if it exists.
+    if (loan.totalPrincipalPaid && loan.totalProfitPaid) {
+        currencies.forEach(c => {
+            principalRemaining[c] -= (loan.totalPrincipalPaid?.[c] || 0);
+            profitRemaining[c] -= (loan.totalProfitPaid?.[c] || 0);
+        });
+    }
 
-    prevSnap.forEach(doc => {
-      const r = doc.data() as LoanRepayment;
-      currencies.forEach(c => {
-        principalRemaining[c] -= r.principalPortion?.[c] || 0;
-        profitRemaining[c] -= r.profitPortion?.[c] || 0;
-      });
-    });
+    let totalPrincipalPaidInBatch = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
+    let totalProfitPaidInBatch = loan.totalProfitPaid || { kip: 0, thb: 0, usd: 0 };
 
-    /* ---------- Process new repayments ---------- */
     for (const r of repayments) {
       const amountPaid = {
         kip: r.amount.kip || 0,
@@ -322,19 +318,19 @@ export const addLoanRepayment = async (
         let paid = amountPaid[c];
         if (paid <= 0) return;
 
-        /* Pay off profit first */
         const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
         profitPortion[c] = profitUsed;
         profitRemaining[c] -= profitUsed;
         paid -= profitUsed;
 
-        /* Then pay off principal */
-        const principalUsed = Math.min(paid, Math.max(0, principalRemaining[c]));
+        const principalUsed = paid;
         principalPortion[c] = principalUsed;
         principalRemaining[c] -= principalUsed;
       });
 
-      /* ---------- Record Accounting ---------- */
+      totalPrincipalPaidInBatch = currencies.reduce((acc, c) => { acc[c] += principalPortion[c]; return acc; }, totalPrincipalPaidInBatch);
+      totalProfitPaidInBatch = currencies.reduce((acc, c) => { acc[c] += profitPortion[c]; return acc; }, totalProfitPaidInBatch);
+      
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
         amount: { ...principalPortion, cny: 0 },
@@ -363,17 +359,18 @@ export const addLoanRepayment = async (
       });
     }
 
-    /* ---------- Update final loan balance & status ---------- */
     const finalOutstandingBalance = currencies.reduce((acc, c) => {
       acc[c] = principalRemaining[c] + profitRemaining[c];
       return acc;
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
-    
+
     tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
       status: isNowSettled ? 'settled' : 'active',
+      totalPrincipalPaid: totalPrincipalPaidInBatch,
+      totalProfitPaid: totalProfitPaidInBatch
     });
   });
 };
