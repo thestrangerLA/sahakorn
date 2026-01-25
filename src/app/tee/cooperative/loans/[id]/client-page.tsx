@@ -147,6 +147,38 @@ export default function LoanDetailPageClient({
     Object.values(outstandingBalance).every(v => v <= 0.01)
   , [outstandingBalance]);
 
+  const repaymentHistory = useMemo(() => {
+    if (!loan) return [];
+
+    const history: (LoanRepayment & { amountToPay: Omit<CurrencyValues, 'cny'>, remaining: Omit<CurrencyValues, 'cny'> })[] = [];
+    const sortedRepayments = [...repayments].sort((a, b) => new Date(a.repaymentDate).getTime() - new Date(b.repaymentDate).getTime());
+    
+    let runningBalance = { ...(loan.repaymentAmount || { kip: 0, thb: 0, usd: 0 }) };
+
+    for (const repayment of sortedRepayments) {
+        const amountToPayThisTime = { ...runningBalance };
+
+        const amountPaid = repayment.amountPaid || { kip: 0, thb: 0, usd: 0 };
+        
+        const remainingAfterPayment = {
+            kip: (amountToPayThisTime.kip || 0) - (amountPaid.kip || 0),
+            thb: (amountToPayThisTime.thb || 0) - (amountPaid.thb || 0),
+            usd: (amountToPayThisTime.usd || 0) - (amountPaid.usd || 0),
+        };
+
+        history.push({
+            ...repayment,
+            amountToPay: amountToPayThisTime,
+            remaining: remainingAfterPayment,
+        });
+
+        runningBalance = remainingAfterPayment;
+    }
+
+    return history.sort((a, b) => new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime());
+  }, [loan, repayments]);
+
+
   /* ---------------- handlers ---------------- */
   const handleConfirmRepayments = async () => {
     if (!loan) return;
@@ -351,30 +383,30 @@ export default function LoanDetailPageClient({
                 <TableHeader>
                   <TableRow>
                     <TableHead>ວັນທີຈ່າຍ</TableHead>
-                    <TableHead>ຍອດຕ້ອງຈ່າຍ</TableHead>
-                    <TableHead>ຍອດຈ່າຍ</TableHead>
-                    <TableHead>ຄົງເຫຼືອ</TableHead>
+                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
+                    <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
+                    <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
                     <TableHead className="text-center">ລຶບ</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {repayments.map((r) => (
+                 <TableBody>
+                  {repaymentHistory.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
                         {format(r.repaymentDate, "dd/MM/yyyy")}
                       </TableCell>
-                       <TableCell>
+                       <TableCell className="text-right">
                         {currencies.map(
                           (c) =>
-                            (loan.repaymentAmount?.[c] ?? 0) > 0 && (
+                            (r.amountToPay?.[c] ?? 0) > 0 && (
                               <div key={c}>
-                                {formatCurrency(loan.repaymentAmount?.[c] ?? 0)}{" "}
+                                {formatCurrency(r.amountToPay?.[c] ?? 0)}{" "}
                                 {c.toUpperCase()}
                               </div>
                             )
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         {currencies.map(
                           (c) =>
                             (r.amountPaid?.[c] ?? 0) > 0 && (
@@ -385,11 +417,11 @@ export default function LoanDetailPageClient({
                             )
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         {currencies.map((c) => (
-                           (loan.amount?.[c] || 0) > 0 &&
+                           (r.amountToPay?.[c] || 0) > 0 &&
                             <div key={c}>
-                                {formatCurrency(r.outstandingBalance?.[c] ?? 0)}{" "}
+                                {formatCurrency(r.remaining?.[c] ?? 0)}{" "}
                                 {c.toUpperCase()}
                             </div>
                         ))}
