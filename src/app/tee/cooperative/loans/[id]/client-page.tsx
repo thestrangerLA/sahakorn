@@ -383,7 +383,7 @@ export default function LoanDetailPageClient({
                 <TableHeader>
                   <TableRow>
                     <TableHead>ວັນທີຈ່າຍ</TableHead>
-                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
+                    <TableHead className="text-right">ຈຳນວນເງິນທັງໝົດ</TableHead>
                     <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
                     <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
                     <TableHead className="text-center">ລຶບ</TableHead>
