@@ -48,6 +48,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
 import {
@@ -214,6 +215,7 @@ export default function LoanDetailPageClient({
                 loanCode: editedLoan.loanCode,
                 purpose: editedLoan.purpose,
                 durationYears: editedLoan.durationYears,
+                applicationDate: editedLoan.applicationDate,
             });
             toast({ title: 'ອັບເດດຂໍ້ມູນສິນເຊື່ອສຳເລັດ' });
             setIsEditing(false);
@@ -270,7 +272,6 @@ export default function LoanDetailPageClient({
             </div>
         </header>
         <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 space-y-4">
-          {/* HEADER */}
           <Card>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
@@ -286,7 +287,10 @@ export default function LoanDetailPageClient({
                         <Label>ລະຫັດສິນເຊື່ອ:</Label>
                         {isEditing ? <Input value={editedLoan.loanCode} onChange={e => setEditedLoan(p => p? {...p, loanCode: e.target.value} : null)} /> : <p className="font-semibold">{loan.loanCode}</p>}
                     </div>
-                    <div><span className="font-semibold">ຜູ້ກູ້ຢືມ:</span> {loan.memberId ? member?.name : loan.debtorName || '...'}</div>
+                    <div>
+                        <Label>ຜູ້ກູ້ຢືມ:</Label>
+                        <p className="font-semibold">{loan.memberId ? member?.name : loan.debtorName || '...'}</p>
+                    </div>
                      <div>
                         <Label>ຈຸດປະສົງ:</Label>
                         {isEditing ? <Input value={editedLoan.purpose} onChange={e => setEditedLoan(p => p? {...p, purpose: e.target.value} : null)} /> : <p className="font-semibold">{loan.purpose || '-'}</p>}
@@ -295,8 +299,31 @@ export default function LoanDetailPageClient({
                         <Label>ໄລຍະເວລາ (ປີ):</Label>
                         {isEditing ? <Input type="number" value={editedLoan.durationYears} onChange={e => setEditedLoan(p => p ? {...p, durationYears: Number(e.target.value)} : null)} /> : <p className="font-semibold">{loan.durationYears || 'N/A'} ປີ</p>}
                     </div>
-                    <div><span className="font-semibold">ວັນທີເລີ່ມສັນຍາ:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
-                    <div><span className="font-semibold">ວັນຄົບກຳນົດ:</span> {dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</div>
+                     <div>
+                        <Label>ວັນທີເລີ່ມສັນຍາ:</Label>
+                        {isEditing ? (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {editedLoan.applicationDate ? format(new Date(editedLoan.applicationDate), "PPP") : <span>ເລືອກວັນທີ</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={editedLoan.applicationDate ? new Date(editedLoan.applicationDate) : undefined}
+                                        onSelect={(date) => setEditedLoan(p => p ? { ...p, applicationDate: date || new Date() } : null)}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        ) : <p className="font-semibold">{format(loan.applicationDate, 'dd/MM/yyyy')}</p>}
+                    </div>
+                    <div>
+                        <Label>ວັນຄົບກຳນົດ:</Label>
+                        <p className="font-semibold">{dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</p>
+                    </div>
                 </div>
               <Table>
                 <TableHeader>
@@ -334,6 +361,70 @@ export default function LoanDetailPageClient({
                   ))}
                 </TableBody>
               </Table>
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">ປະຫວັດການຊຳລະ</h3>
+                 <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>ວັນທີຈ່າຍ</TableHead>
+                        <TableHead>ລະຫັດສິນເຊື່ອ</TableHead>
+                        <TableHead>ຜູ້ກູ້ຢືມ</TableHead>
+                        <TableHead className="text-right">ຈຳນວນເງິນທັງໝົດ</TableHead>
+                        <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
+                        <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
+                        <TableHead className="text-center">ລຶບ</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {repaymentHistory.map((r) => (
+                        <TableRow key={r.id}>
+                        <TableCell>
+                            {format(r.repaymentDate, "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell>{loan.loanCode}</TableCell>
+                        <TableCell>{loan.memberId ? member?.name : loan.debtorName}</TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map(
+                            (c) =>
+                                (r.amountToPay?.[c] ?? 0) > 0 && (
+                                <div key={c}>
+                                    {formatCurrency(r.amountToPay?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                                )
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map(
+                            (c) =>
+                                (r.amountPaid?.[c] ?? 0) > 0 && (
+                                <div key={c}>
+                                    {formatCurrency(r.amountPaid?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                                )
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map((c) => (
+                            (r.amountToPay?.[c] || 0) > 0 &&
+                                <div key={c}>
+                                    {formatCurrency(r.remaining?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                            ))}
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -373,70 +464,6 @@ export default function LoanDetailPageClient({
                 </CardContent>
             </Card>
 
-          {/* HISTORY */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ປະຫວັດການຊຳລະ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ວັນທີຈ່າຍ</TableHead>
-                    <TableHead className="text-right">ຈຳນວນເງິນທັງໝົດ</TableHead>
-                    <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
-                    <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
-                    <TableHead className="text-center">ລຶບ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                 <TableBody>
-                  {repaymentHistory.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>
-                        {format(r.repaymentDate, "dd/MM/yyyy")}
-                      </TableCell>
-                       <TableCell className="text-right">
-                        {currencies.map(
-                          (c) =>
-                            (r.amountToPay?.[c] ?? 0) > 0 && (
-                              <div key={c}>
-                                {formatCurrency(r.amountToPay?.[c] ?? 0)}{" "}
-                                {c.toUpperCase()}
-                              </div>
-                            )
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {currencies.map(
-                          (c) =>
-                            (r.amountPaid?.[c] ?? 0) > 0 && (
-                              <div key={c}>
-                                {formatCurrency(r.amountPaid?.[c] ?? 0)}{" "}
-                                {c.toUpperCase()}
-                              </div>
-                            )
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {currencies.map((c) => (
-                           (r.amountToPay?.[c] || 0) > 0 &&
-                            <div key={c}>
-                                {formatCurrency(r.remaining?.[c] ?? 0)}{" "}
-                                {c.toUpperCase()}
-                            </div>
-                        ))}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
           <AlertDialog open={!!repaymentToDelete} onOpenChange={(open) => !open && setRepaymentToDelete(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>

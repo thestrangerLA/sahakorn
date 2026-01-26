@@ -168,7 +168,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 }
 
 export const addLoan = async (
-  loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid'>
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
@@ -177,9 +177,6 @@ export const addLoan = async (
         status: 'active' as const,
         createdAt: serverTimestamp(),
         applicationDate: applicationTimestamp,
-        outstandingBalance: loanData.repaymentAmount,
-        totalPrincipalPaid: { kip: 0, thb: 0, usd: 0 },
-        totalProfitPaid: { kip: 0, thb: 0, usd: 0 },
     };
     
     if (newLoan.memberId === null || newLoan.memberId === undefined) {
@@ -215,7 +212,16 @@ export const addLoan = async (
 
 export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
-    await updateDoc(loanDocRef, updates);
+    const dataToUpdate: { [key: string]: any } = { ...updates };
+    if (updates.applicationDate) {
+        const newDate = toDateSafe(updates.applicationDate);
+        if (newDate) {
+            dataToUpdate.applicationDate = Timestamp.fromDate(newDate);
+        } else {
+            delete dataToUpdate.applicationDate;
+        }
+    }
+    await updateDoc(loanDocRef, dataToUpdate);
 };
 
 export const deleteLoan = async (loanId: string) => {
@@ -293,9 +299,9 @@ export const addLoanRepayment = async (
     paymentChannel?: 'cash' | 'bank_bcel';
   }[]
 ) => {
-  await runTransaction(db, async (transaction) => {
+  await runTransaction(db, async (tx) => {
     const loanRef = doc(db, 'cooperativeLoans', loanId);
-    const loanSnap = await transaction.get(loanRef);
+    const loanSnap = await tx.get(loanRef);
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
@@ -332,17 +338,17 @@ export const addLoanRepayment = async (
         const principalToPayNow = paid;
         principalPortion[c] = principalToPayNow;
       });
-
-      // Record Accounting only for the total amount collected. No profit recognition here.
-      await recordUserAction({
+      
+      const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
-        amount: { ...amountPaid, cny: 0 },
-        profit: undefined, // Profit is not recognized here anymore
+        amount: { ...principalPortion, cny: 0 },
+        profit: { ...profitPortion, cny: 0 },
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
         paymentChannel: r.paymentChannel || 'cash',
-      }, transaction);
+      }, tx);
+
 
       // Create the repayment document
       const repayRef = doc(repaymentsCollectionRef);
@@ -354,8 +360,9 @@ export const addLoanRepayment = async (
           return acc;
       }, { kip: 0, thb: 0, usd: 0 });
 
-      transaction.set(repayRef, {
+      tx.set(repayRef, {
         loanId,
+        transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
         amountPaid,
         principalPortion,
@@ -380,34 +387,12 @@ export const addLoanRepayment = async (
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
 
-    transaction.update(loanRef, {
+    tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
       status: isNowSettled ? 'settled' : 'active',
       totalPrincipalPaid: currentTotalPrincipalPaid,
       totalProfitPaid: currentTotalProfitPaid,
     });
-
-    if (isNowSettled && !wasAlreadySettled) {
-        const totalProfit = currencies.reduce((acc, c) => {
-            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-            return acc;
-        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
-
-        if (Object.values(totalProfit).some(v => v > 0)) {
-            const finalRepaymentDate = repayments[repayments.length - 1].date;
-
-            await createJournalTransaction({
-                debitAccountId: 'deferred_murabaha_income',
-                creditAccountId: 'sales_income',
-                amount: totalProfit,
-                description: `Recognize full profit for settled Loan #${loan.loanCode}`,
-                date: finalRepaymentDate,
-                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
-                systemGenerated: true,
-                loanId,
-            }, transaction);
-        }
-    }
   });
 };
 
