@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Trash2, PlusCircle, Edit, MinusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, getYear } from "date-fns";
-import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
+import type { CooperativeMember, CooperativeDeposit, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeDepositsForMember, updateCooperativeMember } from '@/services/cooperativeMemberService';
 import { addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -17,6 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AddDepositDialog } from './_components/AddDepositDialog';
 import { EditMemberDialog } from './_components/EditMemberDialog';
 import { WithdrawDepositDialog } from './_components/WithdrawDepositDialog';
+import { toDateSafe } from '@/lib/timestamp';
+import { Badge } from '@/components/ui/badge';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -61,8 +63,9 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
         }
 
         deposits.forEach(deposit => {
-            if (getYear(deposit.date) === currentYear) {
-                const monthName = format(deposit.date, 'MMM');
+            const depositDate = toDateSafe(deposit.date);
+            if (depositDate && getYear(depositDate) === currentYear) {
+                const monthName = format(depositDate, 'MMM');
                 monthlyDeposits[monthName] += deposit.kip || 0; // Charting KIP for now
             }
         });
@@ -73,6 +76,52 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
         }));
 
     }, [deposits]);
+
+    const depositHistory = useMemo(() => {
+        if (!member) return [];
+
+        const sortedDeposits = [...deposits].sort((a, b) => {
+            const dateA = toDateSafe(a.date);
+            const dateB = toDateSafe(b.date);
+            if (!dateA || !dateB) return 0;
+            return dateA.getTime() - dateB.getTime();
+        });
+
+        let runningBalance: CurrencyValues = {
+            kip: member.deposits?.kip || 0,
+            thb: member.deposits?.thb || 0,
+            usd: member.deposits?.usd || 0,
+            cny: member.deposits?.cny || 0,
+        };
+
+        const history = sortedDeposits.map(deposit => {
+            const previousBalance = { ...runningBalance };
+            
+            const change = {
+                kip: deposit.kip || 0,
+                thb: deposit.thb || 0,
+                usd: deposit.usd || 0,
+                cny: deposit.cny || 0,
+            };
+
+            runningBalance.kip += change.kip;
+            runningBalance.thb += change.thb;
+            runningBalance.usd += change.usd;
+            runningBalance.cny += change.cny;
+
+            const newBalance = { ...runningBalance };
+
+            return {
+                id: deposit.id,
+                date: toDateSafe(deposit.date)!,
+                previousBalance,
+                change,
+                newBalance,
+            };
+        });
+
+        return history.reverse(); // Newest first for display
+    }, [member, deposits]);
 
     const handleAddDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
         if (!member) return;
@@ -192,29 +241,39 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ວັນທີ</TableHead>
-                                        <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
+                                        <TableHead>ລາຍລະອຽດ</TableHead>
+                                        <TableHead className="text-right">ຍອດກ່ອນໜ້າ</TableHead>
+                                        <TableHead className="text-right">ຍອດປ່ຽນແປງ</TableHead>
+                                        <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
                                         <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {deposits.length > 0 ? deposits.map(deposit => (
-                                        <TableRow key={deposit.id}>
-                                            <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {deposit.kip !== 0 && <div className={deposit.kip < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.kip)} KIP</div>}
-                                                {deposit.thb !== 0 && <div className={deposit.thb < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.thb)} THB</div>}
-                                                {deposit.usd !== 0 && <div className={deposit.usd < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.usd)} USD</div>}
-                                                {deposit.cny !== 0 && <div className={deposit.cny < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.cny)} CNY</div>}
+                                    {depositHistory.length > 0 ? depositHistory.map(item => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>{format(item.date, 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell>
+                                                {Object.values(item.change).some(v => v > 0) && <Badge variant="secondary">ຝາກເງິນ</Badge>}
+                                                {Object.values(item.change).some(v => v < 0) && <Badge variant="destructive">ຖອນເງິນ</Badge>}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xs">
+                                                 {Object.entries(item.previousBalance).filter(([,v]) => v !== 0).map(([c, v]) => <div key={c}>{formatCurrency(v)} {c.toUpperCase()}</div>)}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xs">
+                                                {Object.entries(item.change).filter(([,v]) => v !== 0).map(([c, v]) => <div key={c} className={v < 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(v)} {c.toUpperCase()}</div>)}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xs font-semibold">
+                                                {Object.entries(item.newBalance).filter(([,v]) => v !== 0).map(([c, v]) => <div key={c}>{formatCurrency(v)} {c.toUpperCase()}</div>)}
                                             </TableCell>
                                             <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(item.id)}>
                                                     <Trash2 className="h-4 w-4 text-red-500" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
+                                            <TableCell colSpan={6} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
