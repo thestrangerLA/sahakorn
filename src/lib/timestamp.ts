@@ -3,6 +3,9 @@ import { Timestamp } from "firebase/firestore";
 
 export function toDateSafe(value: any): Date | null {
   if (!value) return null;
+  if (value instanceof Date) {
+    return value;
+  }
   if (value instanceof Timestamp) {
     return value.toDate();
   }
