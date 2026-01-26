@@ -14,49 +14,55 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar as CalendarIcon, PlusCircle } from "lucide-react";
+import { Calendar as CalendarIcon, MinusCircle } from "lucide-react";
 import { format, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { CooperativeDeposit } from '@/lib/types';
 
-interface AddDepositDialogProps {
+interface WithdrawDepositDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
+  onWithdrawDeposit: (withdrawal: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
   memberName: string;
 }
 
-export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName }: AddDepositDialogProps) {
+export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, memberName }: WithdrawDepositDialogProps) {
     const { toast } = useToast();
-    const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
+    const [withdrawalDate, setWithdrawalDate] = useState<Date | undefined>(new Date());
     const [kip, setKip] = useState(0);
     const [thb, setThb] = useState(0);
     const [usd, setUsd] = useState(0);
     const [cny, setCny] = useState(0);
 
     const handleSubmit = async () => {
-        if (!depositDate) {
+        if (!withdrawalDate) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
             return;
         }
 
+        const totalWithdrawal = kip + thb + usd + cny;
+        if (totalWithdrawal <= 0) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຕ້ອງການຖອນ", variant: "destructive" });
+            return;
+        }
+
         try {
-            await onAddDeposit({
-                date: startOfDay(depositDate),
+            await onWithdrawDeposit({
+                date: startOfDay(withdrawalDate),
                 kip,
                 thb,
                 usd,
                 cny,
             });
-            toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
+            toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
             onOpenChange(false);
-            setDepositDate(new Date());
+            setWithdrawalDate(new Date());
             setKip(0);
             setThb(0);
             setUsd(0);
             setCny(0);
         } catch (error) {
-            console.error("Error adding deposit:", error);
+            console.error("Error withdrawing deposit:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
@@ -65,20 +71,20 @@ export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName 
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>ເພີ່ມເງິນຝາກ: {memberName}</DialogTitle>
+                    <DialogTitle>ຖອນເງິນຝາກ: {memberName}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label>ວັນທີຝາກ</Label>
+                        <Label>ວັນທີຖອນ</Label>
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {depositDate ? format(depositDate, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                    {withdrawalDate ? format(withdrawalDate, "PPP") : <span>ເລືອກວັນທີ</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={depositDate} onSelect={setDepositDate} initialFocus />
+                                <Calendar mode="single" selected={withdrawalDate} onSelect={setWithdrawalDate} initialFocus />
                             </PopoverContent>
                         </Popover>
                     </div>
@@ -103,7 +109,10 @@ export function AddDepositDialog({ open, onOpenChange, onAddDeposit, memberName 
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
-                    <Button onClick={handleSubmit}>ບັນທຶກ</Button>
+                    <Button onClick={handleSubmit} variant="destructive">
+                        <MinusCircle className="mr-2 h-4 w-4" />
+                        ຢືນຢັນການຖອນ
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

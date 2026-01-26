@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -258,6 +257,7 @@ export default function CooperativeMembersPage() {
                 kip: -Math.abs(withdrawal.kip),
                 thb: -Math.abs(withdrawal.thb),
                 usd: -Math.abs(withdrawal.usd),
+                cny: -Math.abs(withdrawal.cny),
             });
             toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
         } catch (error) {
@@ -424,9 +424,7 @@ export default function CooperativeMembersPage() {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>ວັນທີ</TableHead>
-                                                        <TableHead className="text-right">KIP</TableHead>
-                                                        <TableHead className="text-right">THB</TableHead>
-                                                        <TableHead className="text-right">USD</TableHead>
+                                                        <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
                                                         <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                                                     </TableRow>
                                                 </TableHeader>
@@ -434,9 +432,11 @@ export default function CooperativeMembersPage() {
                                                     {monthlyDeposits.map(deposit => (
                                                         <TableRow key={deposit.id} className={deposit.kip < 0 || deposit.thb < 0 || deposit.usd < 0 ? 'bg-red-50/50' : ''}>
                                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
+                                                            <TableCell className="text-right font-mono">
+                                                                {deposit.kip !== 0 && <div className={deposit.kip < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.kip || 0)} KIP</div>}
+                                                                {deposit.thb !== 0 && <div className={deposit.thb < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.thb || 0)} THB</div>}
+                                                                {deposit.usd !== 0 && <div className={deposit.usd < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.usd || 0)} USD</div>}
+                                                            </TableCell>
                                                             <TableCell>
                                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
                                                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -480,4 +480,3 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
-    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Trash2, PlusCircle, Edit } from "lucide-react";
+import { ArrowLeft, Users, Trash2, PlusCircle, Edit, MinusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, getYear } from "date-fns";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
@@ -17,6 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddDepositDialog } from './_components/AddDepositDialog';
 import { EditMemberDialog } from './_components/EditMemberDialog';
+import { WithdrawDepositDialog } from './_components/WithdrawDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -27,6 +27,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
     const [member, setMember] = useState(initialMember);
     const [deposits, setDeposits] = useState(initialDeposits);
     const [isAddDepositOpen, setAddDepositOpen] = useState(false);
+    const [isWithdrawDepositOpen, setWithdrawDepositOpen] = useState(false);
     const [isEditMemberOpen, setEditMemberOpen] = useState(false);
 
      useEffect(() => {
@@ -35,16 +36,18 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
     }, [member.id]);
 
     const totalDeposits = useMemo(() => {
-        if (!member) return { kip: 0, thb: 0, usd: 0 };
+        if (!member) return { kip: 0, thb: 0, usd: 0, cny: 0 };
         return deposits.reduce((sum, d) => {
             sum.kip += d.kip || 0;
             sum.thb += d.thb || 0;
             sum.usd += d.usd || 0;
+            sum.cny += d.cny || 0;
             return sum;
         }, { 
             kip: member.deposits?.kip || 0, 
             thb: member.deposits?.thb || 0, 
-            usd: member.deposits?.usd || 0 
+            usd: member.deposits?.usd || 0,
+            cny: member.deposits?.cny || 0,
         });
     }, [deposits, member]);
 
@@ -84,6 +87,24 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
+
+    const handleWithdrawDeposit = async (withdrawal: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
+        if (!member) return;
+        try {
+            await addCooperativeDeposit({
+                memberId: member.id,
+                memberName: member.name,
+                date: withdrawal.date,
+                kip: -Math.abs(withdrawal.kip),
+                thb: -Math.abs(withdrawal.thb),
+                usd: -Math.abs(withdrawal.usd),
+                cny: -Math.abs(withdrawal.cny),
+            });
+            toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
+        } catch (error) {
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການຖອນເງິນ", variant: "destructive" });
+        }
+    };
     
     const handleDeleteDeposit = async (id: string) => {
         if (!window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການຝາກເງິນນີ້?")) return;
@@ -119,6 +140,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 </div>
                  <div className="ml-auto flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => setEditMemberOpen(true)}><Edit className="mr-2 h-4 w-4"/> ແກ້ໄຂຂໍ້ມູນ</Button>
+                    <Button size="sm" variant="destructive" onClick={() => setWithdrawDepositOpen(true)}><MinusCircle className="mr-2 h-4 w-4"/> ຖອນເງິນ</Button>
                     <Button size="sm" onClick={() => setAddDepositOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> ເພີ່ມເງິນຝາກ</Button>
                 </div>
             </header>
@@ -141,7 +163,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                     <CardHeader className="pb-2">
                         <CardDescription>ຍອດເງິນຝາກລວມ</CardDescription>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-3 gap-4">
+                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                          <div className="text-center p-4 border rounded-lg">
                             <p className="text-sm text-muted-foreground">KIP</p>
                             <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.kip)}</p>
@@ -153,6 +175,10 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                          <div className="text-center p-4 border rounded-lg">
                             <p className="text-sm text-muted-foreground">USD</p>
                             <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.usd)}</p>
+                        </div>
+                         <div className="text-center p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">CNY</p>
+                            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.cny)}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -166,9 +192,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ວັນທີ</TableHead>
-                                        <TableHead className="text-right">KIP</TableHead>
-                                        <TableHead className="text-right">THB</TableHead>
-                                        <TableHead className="text-right">USD</TableHead>
+                                        <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
                                         <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -176,9 +200,12 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                                     {deposits.length > 0 ? deposits.map(deposit => (
                                         <TableRow key={deposit.id}>
                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {deposit.kip !== 0 && <div className={deposit.kip < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.kip)} KIP</div>}
+                                                {deposit.thb !== 0 && <div className={deposit.thb < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.thb)} THB</div>}
+                                                {deposit.usd !== 0 && <div className={deposit.usd < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.usd)} USD</div>}
+                                                {deposit.cny !== 0 && <div className={deposit.cny < 0 ? 'text-red-600' : ''}>{formatCurrency(deposit.cny)} CNY</div>}
+                                            </TableCell>
                                             <TableCell>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
                                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -187,7 +214,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
+                                            <TableCell colSpan={3} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -217,6 +244,12 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 open={isAddDepositOpen} 
                 onOpenChange={setAddDepositOpen}
                 onAddDeposit={handleAddDeposit}
+                memberName={member.name}
+            />
+            <WithdrawDepositDialog 
+                open={isWithdrawDepositOpen} 
+                onOpenChange={setWithdrawDepositOpen}
+                onWithdrawDeposit={handleWithdrawDeposit}
                 memberName={member.name}
             />
             <EditMemberDialog
