@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -22,8 +23,8 @@ const currencySymbols: Record<Currency, string> = {
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
 export interface ExchangeRateCardProps {
-    totalIncome: Record<Currency, number>;
-    totalCost: Record<Currency, number>;
+    totalIncome?: Record<Currency, number>;
+    totalCost?: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
     onCalculatedTotalsChange?: (totals: {
@@ -105,8 +106,11 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
 
 
     const convertedCost = useMemo(() => {
+        if (!totalCost || typeof totalCost !== 'object') {
+            return 0;
+        }
         return (selectedCostCurrencies).reduce((acc, currency) => {
-            const amount = totalCost[currency] || 0;
+            const amount = totalCost[currency as keyof typeof totalCost] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -241,8 +245,8 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                         <div className="space-y-2">
                              <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
-                                {(Object.keys(totalCost) as Currency[]).map(currency => (
-                                    (totalCost[currency as keyof typeof totalCost] > 0) && (
+                                {(Object.keys(totalCost || {}) as Currency[]).map(currency => (
+                                    (totalCost?.[currency as keyof typeof totalCost] || 0) > 0 && (
                                         <div key={currency} className="flex items-center space-x-2">
                                             <Checkbox
                                                 id={`cost-currency-${currency}`}

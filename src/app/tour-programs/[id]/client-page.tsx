@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -592,23 +591,23 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             {activeTab === 'summary' && (
                 <>
                 <div className="space-y-2">
-                    <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
-                    <div className="flex justify-between text-sm pr-4">
-                        <span className="font-lao">ລວມ (Total)</span>
-                        <div className='flex gap-4 font-semibold'>
-                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.income)} ${calculatedTotals.currency}`}</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
-                    <div className="flex justify-between text-sm pr-4">
-                        <span className="font-lao">ລວມ (Total)</span>
-                        <div className='flex gap-4 font-semibold'>
-                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.cost)} ${calculatedTotals.currency}`}</span>
-                        </div>
-                    </div>
-                </div>
+                   <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
+                   <div className="flex justify-between text-sm pr-4">
+                       <span className="font-lao">ລວມ (Total)</span>
+                       <div className='flex gap-4 font-semibold'>
+                           <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.income)} ${calculatedTotals.currency}`}</span>
+                       </div>
+                   </div>
+               </div>
+               <div className="space-y-2">
+                   <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
+                   <div className="flex justify-between text-sm pr-4">
+                       <span className="font-lao">ລວມ (Total)</span>
+                       <div className='flex gap-4 font-semibold'>
+                           <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.cost)} ${calculatedTotals.currency}`}</span>
+                       </div>
+                   </div>
+               </div>
                  <div className="space-y-2">
                      <h3 className="text-base font-semibold border-b pb-1 font-lao">ກໍາໄລ/ຂາດທຶນ (Profit/Loss Summary)</h3>
                     <Table>
@@ -812,7 +811,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະ ກໍາໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                       
