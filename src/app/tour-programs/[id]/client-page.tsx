@@ -788,9 +788,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                         <div className="pt-2 text-sm text-muted-foreground space-y-1">
                             <p><span className="font-semibold">Group Code:</span> {localProgram.tourCode}</p>
                             <div className="flex flex-wrap gap-x-4">
-                                <span className="font-semibold">Profit:</span>
+                                <span className="font-semibold">ກຳໄລສຸດທິ (ຈາກສະຫຼຸບ):</span>
                                 {Object.entries(summaryData.profit).map(([currency, value]) => (
-                                    (value !== 0) && <span key={currency}>{`${formatCurrency(value)} ${currency.toUpperCase()}`}</span>
+                                    (value !== 0) && <span key={currency} className={value >= 0 ? 'text-green-600' : 'text-red-600'}>{`${formatCurrency(value)} ${currency.toUpperCase()}`}</span>
                                 ))}
                             </div>
                         </div>
