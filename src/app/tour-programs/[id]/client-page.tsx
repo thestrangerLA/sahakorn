@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -299,6 +300,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [profitPercentage, setProfitPercentage] = useState<number>(20);
+    const [isClient, setIsClient] = useState(false);
+    const [dividendTargetCurrency, setDividendTargetCurrency] = useState<Currency>('LAK');
 
 
     const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
@@ -321,6 +325,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     };
 
     useEffect(() => {
+        setIsClient(true);
         if (!initialProgram && localProgram?.id) {
              setLoading(true);
              const fetchProgram = async () => {
@@ -491,6 +496,27 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
+
+     const totalNetProfitInTargetCurrency = useMemo(() => {
+        if (!isClient) return 0;
+        return (Object.keys(summaryData.profit) as Currency[]).reduce((acc, currency) => {
+            const amount = summaryData.profit[currency] || 0;
+            if (currency === dividendTargetCurrency) {
+                return acc + amount;
+            }
+            const rate = exchangeRates[currency]?.[dividendTargetCurrency];
+            if (rate) {
+                return acc + (amount * rate);
+            }
+            // Fallback via USD
+            const rateToUsd = exchangeRates[currency]?.USD;
+            const rateFromUsd = exchangeRates['USD']?.[dividendTargetCurrency];
+            if (rateToUsd && rateFromUsd) {
+                return acc + (amount * rateToUsd * rateFromUsd);
+            }
+            return acc;
+        }, 0);
+    }, [summaryData.profit, exchangeRates, dividendTargetCurrency, isClient]);
     
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
@@ -768,7 +794,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                               <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.CNY} currency="CNY" />
                           </div>
                       </div>
-                      
                         <ExchangeRateCard 
                             totalIncome={summaryData.totalIncomes}
                             totalCost={summaryData.totalCosts}
@@ -785,13 +810,24 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                       <CardDescription>
                           ຄຳນວນ ແລະ ຈັດການການປັນຜົນຂອງໂປຣແກຣມນີ້.
                       </CardDescription>
-                        <div className="pt-2 text-sm text-muted-foreground space-y-1">
+                        <div className="pt-2 text-sm text-muted-foreground space-y-2">
                             <p><span className="font-semibold">Group Code:</span> {localProgram.tourCode}</p>
-                            <div className="flex flex-wrap gap-x-4">
-                                <span className="font-semibold">ກຳໄລສຸດທິ (ຈາກສະຫຼຸບ):</span>
-                                {Object.entries(summaryData.profit).map(([currency, value]) => (
-                                    (value !== 0) && <span key={currency} className={value >= 0 ? 'text-green-600' : 'text-red-600'}>{`${formatCurrency(value)} ${currency.toUpperCase()}`}</span>
-                                ))}
+                             <div className="flex items-center gap-4">
+                                <Label htmlFor="dividend-currency">ສະກຸນເງິນປັນຜົນ:</Label>
+                                <Select value={dividendTargetCurrency} onValueChange={(v: Currency) => setDividendTargetCurrency(v)}>
+                                    <SelectTrigger id="dividend-currency" className="w-[120px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {allCurrencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-base">
+                                <span className="font-semibold">ກຳໄລສຸດທິ (ລວມທຸກສະກຸນເງິນ):</span>
+                                <span className={`font-bold ml-2 ${totalNetProfitInTargetCurrency >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(totalNetProfitInTargetCurrency)} {dividendTargetCurrency}
+                                </span>
                             </div>
                         </div>
                   </CardHeader>
@@ -801,7 +837,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow>
                                 <TableHead className="w-1/3">ຜູ້ຮັບຜົນປະໂຫຍດ</TableHead>
                                 <TableHead className="w-[120px] text-center">ເປີເຊັນ (%)</TableHead>
-                                {allCurrencies.map(c => <TableHead key={c} className="text-right uppercase">{c}</TableHead>)}
+                                <TableHead className="text-right">ຈຳນວນເງິນປັນຜົນ ({dividendTargetCurrency})</TableHead>
                                 <TableHead className="w-[50px] print:hidden"><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -823,10 +859,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                             className="h-8 text-center"
                                         />
                                     </TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.LAK * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.THB * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.USD * item.percentage)}</TableCell>
-                                    <TableCell className="text-right font-mono p-1">{formatCurrency(summaryData.profit.CNY * item.percentage)}</TableCell>
+                                    <TableCell className="text-right font-mono p-1">
+                                        {formatCurrency(totalNetProfitInTargetCurrency * item.percentage)}
+                                    </TableCell>
                                     <TableCell className="p-1 print:hidden">
                                         <Button variant="ghost" size="icon" onClick={() => removeDividendRow(item.id)}>
                                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -839,10 +874,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow className="bg-muted font-bold">
                                 <TableCell>ລວມທັງໝົດ</TableCell>
                                 <TableCell className="text-center">{formatCurrency(totalPercentage * 100)}%</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.LAK * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.THB * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.USD * totalPercentage)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(summaryData.profit.CNY * totalPercentage)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                    {formatCurrency(totalNetProfitInTargetCurrency * totalPercentage)}
+                                </TableCell>
                                 <TableCell className="print:hidden"></TableCell>
                             </TableRow>
                         </TableFooter>
@@ -861,3 +895,4 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
+
