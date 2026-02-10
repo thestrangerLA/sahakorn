@@ -12,7 +12,7 @@ type TotalsByCategory = {
 };
 
 type TotalCostCardProps = {
-    totalsByCategory: TotalsByCategory;
+    totalsByCategory?: TotalsByCategory;
     totalCost?: Record<Currency, number>; // Make totalCost optional
 };
 
@@ -53,8 +53,8 @@ export function TotalCostCard({ totalsByCategory, totalCost }: TotalCostCardProp
         return null; 
     }
 
-    const hasData = Object.values(totalsByCategory).some(categoryTotals =>
-        Object.values(categoryTotals).some(value => value > 0)
+    const hasData = totalsByCategory && Object.values(totalsByCategory).some(categoryTotals =>
+        categoryTotals && Object.values(categoryTotals).some(value => value > 0)
     );
 
     return (
@@ -66,7 +66,7 @@ export function TotalCostCard({ totalsByCategory, totalCost }: TotalCostCardProp
             <CardContent className="p-6 print:p-0">
                 {hasData ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
-                        {Object.entries(totalsByCategory).map(([category, totals]) => {
+                        {Object.entries(totalsByCategory!).map(([category, totals]) => {
                             const filteredTotals = Object.entries(totals).filter(([, value]) => value > 0);
                             if (filteredTotals.length === 0) return null;
 
