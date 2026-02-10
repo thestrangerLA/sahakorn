@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, BedDouble, Truck, Plane, TrainFront, Camera, UtensilsCrossed, Users, FileText, Earth } from 'lucide-react';
+import { Calculator, BedDouble, Truck, Plane, TrainFront, Camera, UtensilsCrossed, Users, FileText, Earth, Ticket } from 'lucide-react';
 
 type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
 
@@ -13,6 +13,7 @@ type TotalsByCategory = {
 
 type TotalCostCardProps = {
     totalsByCategory: TotalsByCategory;
+    totalCost?: Record<Currency, number>; // Make totalCost optional
 };
 
 const currencySymbols: Record<Currency, string> = {
@@ -37,10 +38,11 @@ const categoryIcons: { [key: string]: React.ReactNode } = {
     'ຄ່າໄກ້': <Users className="h-6 w-6 text-indigo-500" />,
     'ຄ່າເອກະສານ': <FileText className="h-6 w-6 text-pink-500" />,
     'ຄ່າເພັກເກດຕ່າງປະເທດ': <Earth className="h-6 w-6 text-teal-500" />,
+    'ຄ່າກິດຈະກຳ': <Ticket className="h-6 w-6 text-cyan-500" />,
 };
 
 
-export function TotalCostCard({ totalsByCategory }: TotalCostCardProps) {
+export function TotalCostCard({ totalsByCategory, totalCost }: TotalCostCardProps) {
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
