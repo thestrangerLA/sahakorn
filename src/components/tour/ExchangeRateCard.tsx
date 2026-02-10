@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDebouncedCallback } from 'use-debounce';
 import { useToast } from '@/hooks/use-toast';
 
 export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
@@ -29,24 +28,15 @@ export interface ExchangeRateCardProps {
     onRatesChange: (rates: ExchangeRates) => void;
     profitPercentage?: number;
     onProfitPercentageChange?: (percent: number) => void;
+    isSaving?: boolean;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, profitPercentage, onProfitPercentageChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, profitPercentage, onProfitPercentageChange, isSaving }: ExchangeRateCardProps) {
     const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
     
     useEffect(() => { setIsClient(true); }, []);
-    
-    const debouncedOnRatesChange = useDebouncedCallback((newRates: ExchangeRates) => {
-        onRatesChange(newRates);
-        setIsSaving(true);
-        setTimeout(() => {
-             toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
-             setIsSaving(false);
-        }, 1500);
-    }, 1500);
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
@@ -56,7 +46,6 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
             [from]: { ...rates[from], [to]: numericValue },
         };
         onRatesChange(newRates);
-        debouncedOnRatesChange(newRates);
     };
 
     const convertToTargetCurrency = (amounts?: Record<Currency, number>) => {

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -23,6 +22,7 @@ import { ExchangeRateCard, ExchangeRates } from '@/components/tour/ExchangeRateC
 import { doc, setDoc, serverTimestamp, Timestamp, deleteDoc, getFirestore, collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toDateSafe } from '@/lib/timestamp';
+import { useDebouncedCallback } from 'use-debounce';
 
 // Types
 type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
@@ -136,6 +136,28 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
 
     const [loading, setLoading] = useState(!initialCalculation);
     const [error, setError] = useState<string | null>(null);
+    const [isSavingRates, setIsSavingRates] = useState(false);
+
+    const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
+        if (!calculationId || loading) return;
+        setIsSavingRates(true);
+        try {
+            const firestore = getFirestore(db.app);
+            const calculationDocRef = doc(firestore, 'tourCalculations', calculationId);
+            await setDoc(calculationDocRef, { exchangeRates: rates }, { merge: true });
+            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+        } catch (error) {
+            console.error("Failed to save exchange rates:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
+        } finally {
+            setIsSavingRates(false);
+        }
+    }, 1500);
+
+    const handleRatesChange = (newRates: ExchangeRates) => {
+        setExchangeRates(newRates);
+        debouncedSaveRates(newRates);
+    };
 
     useEffect(() => {
         if (!isClient || !calculationId || calculationId === 'default') {
