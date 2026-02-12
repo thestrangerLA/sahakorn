@@ -341,8 +341,8 @@ export const addLoanRepayment = async (
       
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
-        amount: { ...principalPortion, cny: 0 },
-        profit: { ...profitPortion, cny: 0 },
+        amount: { ...amountPaid, cny: 0 },
+        profit: { ...profitPortion, cny: 0},
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
@@ -386,6 +386,31 @@ export const addLoanRepayment = async (
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    
+    // If the loan becomes settled with this payment, recognize the deferred income.
+    if (isNowSettled && !wasAlreadySettled) {
+        const totalProfit = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0 });
+
+        const totalProfitValue = Object.values(totalProfit).reduce((a, b) => a + b, 0);
+
+        if (totalProfitValue > 0) {
+            await createJournalTransaction({
+                debitAccountId: 'deferred_murabaha_income',
+                creditAccountId: 'sales_income',
+                amount: { ...totalProfit, cny: 0 },
+                description: `Recognize profit for settled Loan #${loan.loanCode}`,
+                date: repayments[repayments.length - 1].date, // Use the date of the final repayment
+                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
+                contractType: 'MURABAHA',
+                systemGenerated: true,
+                loanId: loanId,
+            }, tx);
+        }
+    }
+
 
     tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
