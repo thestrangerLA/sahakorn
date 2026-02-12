@@ -51,7 +51,7 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false, loanId }:
   { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string },
-  transaction?: FirestoreTransaction | WriteBatch
+  transaction: FirestoreTransaction | WriteBatch
 ): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -97,8 +97,13 @@ export async function createJournalTransaction(
   const creditRef = doc(transactionsCollectionRef);
 
   if (transaction) {
-    transaction.set(debitRef, debitData);
-    transaction.set(creditRef, creditData);
+    if ('set' in transaction) { // It's a WriteBatch
+      transaction.set(debitRef, debitData);
+      transaction.set(creditRef, creditData);
+    } else { // It's a Transaction
+      transaction.set(debitRef, debitData);
+      transaction.set(creditRef, creditData);
+    }
   } else {
     const batch = writeBatch(db);
     batch.set(debitRef, debitData);
@@ -111,11 +116,9 @@ export async function createJournalTransaction(
 
 export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction?: FirestoreTransaction | WriteBatch): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
-
-    // For repayments, the `amount` is principal, `profit` is profit. The total cash received is the sum.
-    const primaryAmount = (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit) 
-        ? sumCurrency(amount, profit) 
-        : amount;
+    
+    // The amount for the primary journal entry is always the `amount` parameter.
+    const primaryAmount = amount;
     
     // Primary entry
     const mainTransactionGroupId = await createJournalTransaction({
@@ -130,9 +133,29 @@ export async function recordUserAction({ action, amount, profit, description, da
         loanId,
     }, transaction);
     
-    // This is no longer needed here as profit recognition is handled when the loan is settled.
-    // if (secondaryEntries && profit) { ... }
-
+    // Handle secondary entries (like for Murabaha profit deferral)
+    if (secondaryEntries && profit) {
+        for (const entry of secondaryEntries) {
+            let secondaryAmount = { ...initialCurrencyValues };
+            if (entry.amountField === 'profit' && profit) {
+                secondaryAmount = { ...profit };
+            }
+            
+            if (Object.values(secondaryAmount).some(v => v > 0)) {
+                await createJournalTransaction({
+                    debitAccountId: entry.debitAccountId,
+                    creditAccountId: entry.creditAccountId,
+                    amount: secondaryAmount,
+                    description: `(Auto) Defer Profit for ${description}`,
+                    date,
+                    userAction: action,
+                    contractType: contractType,
+                    systemGenerated: true,
+                    loanId
+                }, transaction);
+            }
+        }
+    }
     return mainTransactionGroupId;
 }
 
@@ -206,6 +229,7 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
     const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
     transactions.forEach(tx => {
+        if (!tx.accountId) return;
         if (!balances[tx.accountId]) {
             balances[tx.accountId] = { kip: 0, thb: 0, usd: 0, cny: 0 };
         }

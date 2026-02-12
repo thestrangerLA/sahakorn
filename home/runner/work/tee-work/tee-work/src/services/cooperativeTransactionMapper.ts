@@ -135,14 +135,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           requiresApproval: false,
           requiresContract: false,
           notes: 'Collection of Murabaha payment. Late payments do NOT incur additional charges.'
-        },
-        secondaryEntries: [
-          {
-            debitAccountId: 'deferred_murabaha_income',
-            creditAccountId: 'sales_income',
-            amountField: 'profit'
-          }
-        ]
+        }
       };
 
     case 'RECOGNIZE_MURABAHA_PROFIT':

@@ -70,6 +70,10 @@ export const listenToCooperativeLoans = (
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -100,6 +104,10 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -130,6 +138,10 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         } else {
             callback(null);
@@ -150,13 +162,17 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             createdAt: toDateSafe(data.createdAt) || new Date(),
             amount: data.amount || { kip: 0, thb: 0, usd: 0 },
             repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+            outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+            totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+            totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+            profitRecorded: data.profitRecorded || false,
         } as Loan;
     }
     return null;
 }
 
 export const addLoan = async (
-  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid'>
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid' | 'profitRecorded'>
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
@@ -165,6 +181,7 @@ export const addLoan = async (
         status: 'active' as const,
         createdAt: serverTimestamp(),
         applicationDate: applicationTimestamp,
+        profitRecorded: false, // Initialize as false
     };
     
     if (newLoan.memberId === null || newLoan.memberId === undefined) {
@@ -200,7 +217,16 @@ export const addLoan = async (
 
 export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
-    await updateDoc(loanDocRef, updates);
+    const dataToUpdate: { [key: string]: any } = { ...updates };
+    if (updates.applicationDate) {
+        const newDate = toDateSafe(updates.applicationDate);
+        if (newDate) {
+            dataToUpdate.applicationDate = Timestamp.fromDate(newDate);
+        } else {
+            delete dataToUpdate.applicationDate;
+        }
+    }
+    await updateDoc(loanDocRef, dataToUpdate);
 };
 
 export const deleteLoan = async (loanId: string) => {
@@ -284,7 +310,7 @@ export const addLoanRepayment = async (
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
-    const wasAlreadySettled = loan.status === 'settled';
+    const wasProfitRecorded = loan.profitRecorded || false;
 
     // Initialize running totals from the loan document for this transaction batch
     let currentTotalPrincipalPaid = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
@@ -317,17 +343,17 @@ export const addLoanRepayment = async (
         const principalToPayNow = paid;
         principalPortion[c] = principalToPayNow;
       });
-
-      // Record Accounting only for the total amount collected. No profit recognition here.
-      await recordUserAction({
+      
+      const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
         amount: { ...amountPaid, cny: 0 },
-        profit: { ...profitPortion, cny: 0},
+        profit: undefined, // Profit is handled upon settlement, not here
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
         paymentChannel: r.paymentChannel || 'cash',
       }, tx);
+
 
       // Create the repayment document
       const repayRef = doc(repaymentsCollectionRef);
@@ -341,6 +367,7 @@ export const addLoanRepayment = async (
 
       tx.set(repayRef, {
         loanId,
+        transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
         amountPaid,
         principalPortion,
@@ -364,14 +391,38 @@ export const addLoanRepayment = async (
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    
+    // If the loan becomes settled with this payment, recognize the deferred income.
+    if (isNowSettled && !wasProfitRecorded) {
+        const totalProfit = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0 });
 
-    transaction.update(loanRef, {
+        const totalProfitValue = Object.values(totalProfit).reduce((a, b) => a + b, 0);
+
+        if (totalProfitValue > 0) {
+            await createJournalTransaction({
+                debitAccountId: 'deferred_murabaha_income',
+                creditAccountId: 'sales_income',
+                amount: { ...totalProfit, cny: 0 },
+                description: `Recognize profit for settled Loan #${loan.loanCode}`,
+                date: repayments[repayments.length - 1].date, // Use the date of the final repayment
+                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
+                systemGenerated: true,
+                loanId: loanId,
+            }, tx);
+        }
+    }
+
+
+    tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
       status: isNowSettled ? 'settled' : 'active',
       totalPrincipalPaid: currentTotalPrincipalPaid,
       totalProfitPaid: currentTotalProfitPaid,
+      profitRecorded: isNowSettled,
     });
-    
   });
 };
 
