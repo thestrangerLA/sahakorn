@@ -310,7 +310,7 @@ export const addLoanRepayment = async (
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
-    const wasAlreadySettled = loan.status === 'settled';
+    const wasProfitRecorded = loan.profitRecorded || false;
 
     // Initialize running totals from the loan document for this transaction batch
     let currentTotalPrincipalPaid = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
@@ -393,7 +393,7 @@ export const addLoanRepayment = async (
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
     
     // If the loan becomes settled with this payment, recognize the deferred income.
-    if (isNowSettled && !wasAlreadySettled) {
+    if (isNowSettled && !wasProfitRecorded) {
         const totalProfit = currencies.reduce((acc, c) => {
             acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
             return acc;

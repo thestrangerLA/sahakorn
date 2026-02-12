@@ -317,6 +317,7 @@ export interface Loan {
   outstandingBalance?: Omit<CurrencyValues, 'cny'>;
   totalPrincipalPaid?: Omit<CurrencyValues, 'cny'>;
   totalProfitPaid?: Omit<CurrencyValues, 'cny'>;
+  profitRecorded?: boolean;
 }
 
 
