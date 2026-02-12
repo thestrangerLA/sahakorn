@@ -97,8 +97,13 @@ export async function createJournalTransaction(
   const creditRef = doc(transactionsCollectionRef);
 
   if (transaction) {
-    transaction.set(debitRef, debitData);
-    transaction.set(creditRef, creditData);
+    if ('set' in transaction) { // It's a WriteBatch
+      transaction.set(debitRef, debitData);
+      transaction.set(creditRef, creditData);
+    } else { // It's a Transaction
+      transaction.set(debitRef, debitData);
+      transaction.set(creditRef, creditData);
+    }
   } else {
     const batch = writeBatch(db);
     batch.set(debitRef, debitData);
@@ -109,12 +114,10 @@ export async function createJournalTransaction(
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction: FirestoreTransaction | WriteBatch): Promise<string> {
+export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction?: FirestoreTransaction | WriteBatch): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
-
-    const primaryAmount = (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit)
-        ? sumCurrency(amount, profit)
-        : amount;
+    
+    const primaryAmount = amount;
     
     // Primary entry
     const mainTransactionGroupId = await createJournalTransaction({
@@ -129,7 +132,7 @@ export async function recordUserAction({ action, amount, profit, description, da
         loanId,
     }, transaction);
     
-    // Handle secondary entries (like for Murabaha profit recognition)
+    // Handle secondary entries (like for Murabaha profit deferral)
     if (secondaryEntries && profit) {
         for (const entry of secondaryEntries) {
             let secondaryAmount = { ...initialCurrencyValues };
@@ -142,7 +145,7 @@ export async function recordUserAction({ action, amount, profit, description, da
                     debitAccountId: entry.debitAccountId,
                     creditAccountId: entry.creditAccountId,
                     amount: secondaryAmount,
-                    description: `(Auto) Profit Recognition for ${description}`,
+                    description: `(Auto) Defer Profit for ${description}`,
                     date,
                     userAction: action,
                     contractType: contractType,
@@ -225,6 +228,7 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
     const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
     transactions.forEach(tx => {
+        if (!tx.accountId) return;
         if (!balances[tx.accountId]) {
             balances[tx.accountId] = { kip: 0, thb: 0, usd: 0, cny: 0 };
         }
@@ -232,8 +236,9 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
         const multiplier = tx.type === 'debit' ? 1 : -1;
         
         currencyKeys.forEach(currencyKey => {
-            if (tx.amount && tx.amount[currencyKey]) {
-                balances[tx.accountId][currencyKey] += (tx.amount[currencyKey] || 0) * multiplier;
+            const amount = tx.amount as CurrencyValues;
+            if (amount && amount[currencyKey]) {
+                balances[tx.accountId][currencyKey] += (amount[currencyKey] || 0) * multiplier;
             }
         });
     });

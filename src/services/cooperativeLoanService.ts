@@ -73,6 +73,7 @@ export const listenToCooperativeLoans = (
                 outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
                 totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
                 totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -106,6 +107,7 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
                 totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
                 totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -139,6 +141,7 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
                 totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
                 totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         } else {
             callback(null);
@@ -162,13 +165,14 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
             totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+            profitRecorded: data.profitRecorded || false,
         } as Loan;
     }
     return null;
 }
 
 export const addLoan = async (
-  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid'>
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid' | 'profitRecorded'>
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
@@ -177,6 +181,7 @@ export const addLoan = async (
         status: 'active' as const,
         createdAt: serverTimestamp(),
         applicationDate: applicationTimestamp,
+        profitRecorded: false, // Initialize as false
     };
     
     if (newLoan.memberId === null || newLoan.memberId === undefined) {
@@ -342,7 +347,7 @@ export const addLoanRepayment = async (
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
         amount: { ...amountPaid, cny: 0 },
-        profit: { ...profitPortion, cny: 0},
+        profit: undefined,
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
@@ -401,7 +406,7 @@ export const addLoanRepayment = async (
                 debitAccountId: 'deferred_murabaha_income',
                 creditAccountId: 'sales_income',
                 amount: { ...totalProfit, cny: 0 },
-                description: `Recognize profit for settled Loan #${loan.loanCode}`,
+                description: `ກຳໄລຈາກສິນເຊື່ອ #${loan.loanCode}`,
                 date: repayments[repayments.length - 1].date, // Use the date of the final repayment
                 userAction: 'RECOGNIZE_MURABAHA_PROFIT',
                 contractType: 'MURABAHA',
@@ -417,6 +422,7 @@ export const addLoanRepayment = async (
       status: isNowSettled ? 'settled' : 'active',
       totalPrincipalPaid: currentTotalPrincipalPaid,
       totalProfitPaid: currentTotalProfitPaid,
+      profitRecorded: isNowSettled,
     });
   });
 };
