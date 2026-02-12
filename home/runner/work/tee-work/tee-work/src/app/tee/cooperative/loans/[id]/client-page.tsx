@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -60,6 +61,7 @@ import {
 } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
 import { useToast } from "@/hooks/use-toast";
+import { toDateSafe } from "@/lib/timestamp";
 
 const currencies: (keyof Omit<CurrencyValues, "cny">)[] = [
   "kip",
@@ -152,7 +154,7 @@ export default function LoanDetailPageClient({
     if (!loan) return [];
 
     const history: (LoanRepayment & { amountToPay: Omit<CurrencyValues, 'cny'>, remaining: Omit<CurrencyValues, 'cny'> })[] = [];
-    const sortedRepayments = [...repayments].sort((a, b) => new Date(a.repaymentDate).getTime() - new Date(b.repaymentDate).getTime());
+    const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
     
     let runningBalance = { ...(loan.repaymentAmount || { kip: 0, thb: 0, usd: 0 }) };
 
@@ -176,7 +178,7 @@ export default function LoanDetailPageClient({
         runningBalance = remainingAfterPayment;
     }
 
-    return history.sort((a, b) => new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime());
+    return history.sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
   }, [loan, repayments]);
 
 
@@ -252,7 +254,7 @@ export default function LoanDetailPageClient({
 
   if (!loan || !editedLoan) return null;
   
-  const dueDate = loan.durationYears ? addYears(loan.applicationDate, loan.durationYears) : null;
+  const dueDate = loan.durationYears ? addYears(toDateSafe(loan.applicationDate)!, loan.durationYears) : null;
 
 
   /* ---------------- UI ---------------- */
@@ -306,19 +308,19 @@ export default function LoanDetailPageClient({
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {editedLoan.applicationDate ? format(new Date(editedLoan.applicationDate), "PPP") : <span>ເລືອກວັນທີ</span>}
+                                        {editedLoan.applicationDate ? format(toDateSafe(editedLoan.applicationDate)!, "PPP") : <span>ເລືອກວັນທີ</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={editedLoan.applicationDate ? new Date(editedLoan.applicationDate) : undefined}
+                                        selected={toDateSafe(editedLoan.applicationDate)!}
                                         onSelect={(date) => setEditedLoan(p => p ? { ...p, applicationDate: date || new Date() } : null)}
                                         initialFocus
                                     />
                                 </PopoverContent>
                             </Popover>
-                        ) : <p className="font-semibold">{format(loan.applicationDate, 'dd/MM/yyyy')}</p>}
+                        ) : <p className="font-semibold">{format(toDateSafe(loan.applicationDate)!, 'dd/MM/yyyy')}</p>}
                     </div>
                     <div>
                         <Label>ວັນຄົບກຳນົດ:</Label>
@@ -363,7 +365,7 @@ export default function LoanDetailPageClient({
               </Table>
               <Separator className="my-6" />
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">ປະຫວັດການຊຳລະ</h3>
+                <h3 className="text-lg font-semibold">ປະຫວັດການຊຳລະ: {loan.memberId ? member?.name : loan.debtorName || '...'}</h3>
                  <Table>
                     <TableHeader>
                     <TableRow>
