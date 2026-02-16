@@ -18,6 +18,7 @@ export const defaultAccounts: Account[] = [
 
   // Equity
   { id: 'share_capital', code: '3010', name: 'ທຶນຮຸ້ນ (Share Capital)', type: 'equity', href: '/tee/cooperative/members' },
+  { id: 'opening_balance_equity', code: '3015', name: 'ທຶນຍົກມາ (Opening Balance Equity)', type: 'equity' },
   { id: 'retained_earnings', code: '3020', name: 'ກຳໄລສະສົມ (Retained Earnings)', type: 'equity' },
 
   // Income

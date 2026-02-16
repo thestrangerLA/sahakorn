@@ -59,14 +59,24 @@ const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues
         const account = defaultAccounts.find(a => a.id === tx.accountId);
         if (!account || (account.type !== 'income' && account.type !== 'expense')) return;
 
-        const multiplier = tx.type === 'debit' ? 1 : -1;
-        
+        const amount = tx.amount as CurrencyValues;
+
         currencies.forEach(c => {
-            const amount = (tx.amount?.[c] || 0) * multiplier;
+            const value = amount[c] || 0;
+            if (value === 0) return;
+
             if (account.type === 'income') {
-                income[c] -= amount;
+                if (tx.type === 'credit') {
+                    income[c] += value;
+                } else { 
+                    income[c] -= value;
+                }
             } else if (account.type === 'expense') {
-                expense[c] += amount;
+                if (tx.type === 'debit') {
+                    expense[c] += value;
+                } else { 
+                    expense[c] -= value;
+                }
             }
         });
     });
@@ -275,13 +285,21 @@ export default function CooperativeIncomeExpensePage() {
                                         return null;
                                     }
 
-                                    const isIncome = account.type === 'income';
-                                    const effectiveType = (isIncome && tx.type === 'credit') || (!isIncome && tx.type === 'debit') ? 'income' : 'expense';
+                                    const isProfitIncreasing = (account.type === 'income' && tx.type === 'credit') || (account.type === 'expense' && tx.type === 'credit');
+                                    const effectiveType = isProfitIncreasing ? 'income' : 'expense';
 
                                     return (
                                         <TableRow key={tx.id}>
                                             <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
-                                            <TableCell>{tx.description}</TableCell>
+                                            <TableCell>
+                                                {tx.loanId ? (
+                                                <Link href={`/tee/cooperative/loans/${tx.loanId}`} className="hover:underline text-blue-600">
+                                                    {tx.description}
+                                                </Link>
+                                                ) : (
+                                                tx.description
+                                                )}
+                                            </TableCell>
                                             <TableCell>{account.name}</TableCell>
                                             <TableCell>
                                                  <Badge variant={effectiveType === 'income' ? 'default' : 'destructive'} className={effectiveType === 'income' ? 'bg-green-100 text-green-800' : ''}>
@@ -289,7 +307,7 @@ export default function CooperativeIncomeExpensePage() {
                                                 </Badge>
                                             </TableCell>
                                             {currencies.map(c => {
-                                                const amount = tx.amount[c] || 0;
+                                                const amount = (tx.amount as CurrencyValues)[c] || 0;
                                                 return (
                                                     <TableCell key={c} className={`text-right font-mono ${amount > 0 ? (effectiveType === 'income' ? 'text-green-600' : 'text-red-600') : ''}`}>
                                                         {amount > 0 ? formatCurrency(amount) : '-'}
