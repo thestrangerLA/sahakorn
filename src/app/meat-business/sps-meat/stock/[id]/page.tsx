@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getSpsMeatStockItem } from '@/services/spsMeatStockService';
 import type { MeatStockItem } from '@/lib/types';
-import MeatStockClientPage from './client-page';
+import SpsMeatStockClientPage from './client-page';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SpsMeatStockPage() {
@@ -49,5 +49,5 @@ export default function SpsMeatStockPage() {
     );
   }
 
-  return <MeatStockClientPage initialItem={item} />;
+  return <SpsMeatStockClientPage initialItem={item} />;
 }
