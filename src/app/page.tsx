@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,9 +6,8 @@ import { Leaf, FerrisWheel, Briefcase, FileText, Drumstick, ShoppingCart, Wrench
 import Link from 'next/link'
 import { listenToAccountSummary } from '@/services/accountancyService';
 import { listenToTourAccountSummary } from '@/services/tourAccountancyService';
-import { listenToDocumentAccountSummary } from '@/services/documentAccountancyService';
 import { listenToMeatAccountSummary } from '@/services/meatAccountancyService';
-import type { AccountSummary, TourAccountSummary, DocumentAccountSummary } from '@/lib/types';
+import type { AccountSummary, TourAccountSummary } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const formatCurrency = (value: number) => {
@@ -34,14 +32,12 @@ const BusinessCard = ({ title, icon, href, children }: { title: string, icon: Re
 export default function Home() {
     const [agriSummary, setAgriSummary] = useState<AccountSummary | null>(null);
     const [tourSummary, setTourSummary] = useState<TourAccountSummary | null>(null);
-    const [docSummary, setDocSummary] = useState<DocumentAccountSummary | null>(null);
     const [meatSummary, setMeatSummary] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const unsubAgri = listenToAccountSummary('agriculture', setAgriSummary);
         const unsubTour = listenToTourAccountSummary(setTourSummary);
-        const unsubDoc = listenToDocumentAccountSummary(setDocSummary);
         const unsubMeat = listenToMeatAccountSummary(setMeatSummary);
 
         // Simple loading state
@@ -50,7 +46,6 @@ export default function Home() {
         return () => {
             unsubAgri();
             unsubTour();
-            unsubDoc();
             unsubMeat();
             clearTimeout(timer);
         };
@@ -69,17 +64,6 @@ export default function Home() {
         });
         return total(tourSummary);
     }, [tourSummary]);
-
-     const docTotals = useMemo(() => {
-        if (!docSummary) return { kip: 0, baht: 0, usd: 0, cny: 0 };
-         const total = (summary: DocumentAccountSummary) => ({
-            kip: (summary.cash?.kip || 0) + (summary.transfer?.kip || 0),
-            baht: (summary.cash?.baht || 0) + (summary.transfer?.baht || 0),
-            usd: (summary.cash?.usd || 0) + (summary.transfer?.usd || 0),
-            cny: (summary.cash?.cny || 0) + (summary.transfer?.cny || 0),
-        });
-        return total(docSummary);
-    }, [docSummary]);
 
 
   return (
@@ -122,18 +106,6 @@ export default function Home() {
                 ) : <p className="text-muted-foreground">ບໍ່ມີຂໍ້ມູນ</p>}
             </BusinessCard>
 
-             <BusinessCard title="ທຸລະກິດ ເອກະສານ" href="/documents" icon={<FileText className="h-8 w-8 text-primary" />}>
-                {loading ? <Skeleton className="h-24 w-full" /> : docSummary ? (
-                    <div className="space-y-1 text-sm">
-                       <p className="font-semibold text-muted-foreground">ຍອດເງິນລວມ:</p>
-                       <p>KIP: <span className="font-mono font-semibold">{formatCurrency(docTotals.kip)}</span></p>
-                       <p>THB: <span className="font-mono font-semibold">{formatCurrency(docTotals.baht)}</span></p>
-                       <p>USD: <span className="font-mono font-semibold">{formatCurrency(docTotals.usd)}</span></p>
-                       <p>CNY: <span className="font-mono font-semibold">{formatCurrency(docTotals.cny)}</span></p>
-                    </div>
-                ) : <p className="text-muted-foreground">ບໍ່ມີຂໍ້ມູນ</p>}
-            </BusinessCard>
-
             <BusinessCard title="ທຸລະກິດ ເຄື່ອງໃຊ້" href="/appliances" icon={<ShoppingCart className="h-8 w-8 text-primary" />}>
                 <p className="text-muted-foreground">ຈັດການຂໍ້ມູນທຸລະກິດເຄື່ອງໃຊ້ທົ່ວໄປ</p>
             </BusinessCard>
@@ -150,5 +122,3 @@ export default function Home() {
     </div>
   )
 }
-
-    
