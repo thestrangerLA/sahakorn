@@ -1,8 +1,7 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users } from "lucide-react"
+import { ArrowLeft, Users } from "lucide-react"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 
@@ -23,58 +22,6 @@ export default function TeePage() {
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 w-full max-w-6xl">
-          <Link href="/tee/central-account">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ບັນຊີກອງກາງ</CardTitle>
-                <Landmark className="h-8 w-8 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ຈັດການບັນຊີກອງກາງ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/tee/student-account">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ບັນຊີການສຶກສາ</CardTitle>
-                <Users className="h-8 w-8 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ຈັດການບັນຊີການສຶກສາ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/tee/thai-student-account">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ບັນຊີໄທ ນັກສຶກສາ</CardTitle>
-                <Users className="h-8 w-8 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ຈັດການບັນຊີນັກສຶກສາໄທ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/tee/thai-student-debtors">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ລູກໜີ້/ເຈົ້າໜີ້ (ນັກສຶກສາໄທ)</CardTitle>
-                <Users className="h-8 w-8 text-cyan-500" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ຈັດການລາຍການລູກໜີ້ ແລະ ເຈົ້າໜີ້ຂອງນັກສຶກສາໄທ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
           <Link href="/tee/cooperative">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
