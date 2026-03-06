@@ -179,40 +179,6 @@ export default function CooperativeMembersPage() {
         }, { kip: 0, thb: 0, usd: 0, cny: 0 });
     }, [membersWithTotalDeposits]);
 
-    const totalInvestments = useMemo(() => {
-        return investments.reduce((acc, investment) => {
-            currencies.forEach(c => {
-                acc[c] = (acc[c] || 0) + (investment.amount[c] || 0);
-            });
-            return acc;
-        }, { ...initialCurrencyValues });
-    }, [investments]);
-    
-    const totalOutstandingLoan = useMemo(() => {
-         const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-         loans.forEach(loan => {
-             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
-             currencies.forEach(c => {
-                const totalToRepay = loan.repaymentAmount[c] || 0;
-                const paidForCurrency = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                const outstandingForLoan = totalToRepay - paidForCurrency;
-                if (outstandingForLoan > 0) {
-                   outstanding[c] += outstandingForLoan;
-                }
-             })
-         });
-         return outstanding;
-    }, [loans, repayments]);
-
-    const totalCooperativeMoney = useMemo(() => {
-        const total = { ...initialCurrencyValues };
-        currencies.forEach(c => {
-            total[c] = (grandTotalDeposits[c] || 0) + (totalInvestments[c] || 0) + (totalOutstandingLoan[c] || 0);
-        });
-        return total;
-    }, [grandTotalDeposits, totalInvestments, totalOutstandingLoan]);
-
-
     const handleAddMember = async (member: Omit<CooperativeMember, 'id' | 'createdAt'>) => {
         await addCooperativeMember(member);
     };
@@ -334,7 +300,7 @@ export default function CooperativeMembersPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 mb-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">ສະມາຊິກທັງໝົດ</CardTitle>
@@ -351,15 +317,6 @@ export default function CooperativeMembersPage() {
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-x-4">
                             {Object.entries(grandTotalDeposits).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">ເງິນທັງໝົດຂອງສະຫະກອນ</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-x-4">
-                            {Object.entries(totalCooperativeMoney).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
                         </CardContent>
                     </Card>
                 </div>
