@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -33,6 +32,7 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
     const [kip, setKip] = useState(0);
     const [thb, setThb] = useState(0);
     const [usd, setUsd] = useState(0);
+    const [cny, setCny] = useState(0);
 
     const handleSubmit = async () => {
         if (!withdrawalDate) {
@@ -40,7 +40,7 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
             return;
         }
 
-        const totalWithdrawal = kip + thb + usd;
+        const totalWithdrawal = kip + thb + usd + cny;
         if (totalWithdrawal <= 0) {
             toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຕ້ອງການຖອນ", variant: "destructive" });
             return;
@@ -52,6 +52,7 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
                 kip,
                 thb,
                 usd,
+                cny,
             });
             toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
             onOpenChange(false);
@@ -59,6 +60,7 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
             setKip(0);
             setThb(0);
             setUsd(0);
+            setCny(0);
         } catch (error) {
             console.error("Error withdrawing deposit:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -86,17 +88,23 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (KIP)</Label>
-                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (THB)</Label>
-                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (USD)</Label>
-                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>ຈຳນວນເງິນ (KIP)</Label>
+                            <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>ຈຳນວນເງິນ (THB)</Label>
+                            <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>ຈຳນວນເງິນ (USD)</Label>
+                            <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                        </div>
+                         <div className="grid gap-2">
+                            <Label>ຈຳນວນເງິນ (CNY)</Label>
+                            <Input type="number" value={cny || ''} onChange={e => setCny(Number(e.target.value))} />
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>
@@ -110,5 +118,3 @@ export function WithdrawDepositDialog({ open, onOpenChange, onWithdrawDeposit, m
         </Dialog>
     );
 }
-
-    

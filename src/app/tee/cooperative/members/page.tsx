@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -38,7 +37,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
     const [memberId, setMemberId] = useState('');
     const [name, setName] = useState('');
     const [joinDate, setJoinDate] = useState<Date | undefined>(new Date());
-    const [deposits, setDeposits] = useState({ kip: 0, thb: 0, usd: 0 });
+    const [deposits, setDeposits] = useState({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,7 +59,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
             setMemberId('');
             setName('');
             setJoinDate(new Date());
-            setDeposits({ kip: 0, thb: 0, usd: 0 });
+            setDeposits({ kip: 0, thb: 0, usd: 0, cny: 0 });
         } catch (error) {
             console.error("Error adding member:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -101,10 +100,11 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
                     </div>
                      <div className="grid gap-2">
                         <Label>ເງິນຝາກເລີ່ມຕົ້ນ</Label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                            <Input type="number" placeholder="KIP" value={deposits.kip || ''} onChange={e => setDeposits(p => ({...p, kip: Number(e.target.value)}))} />
                            <Input type="number" placeholder="THB" value={deposits.thb || ''} onChange={e => setDeposits(p => ({...p, thb: Number(e.target.value)}))} />
                            <Input type="number" placeholder="USD" value={deposits.usd || ''} onChange={e => setDeposits(p => ({...p, usd: Number(e.target.value)}))} />
+                           <Input type="number" placeholder="CNY" value={deposits.cny || ''} onChange={e => setDeposits(p => ({...p, cny: Number(e.target.value)}))} />
                         </div>
                     </div>
                     <DialogFooter>
@@ -178,6 +178,21 @@ export default function CooperativeMembersPage() {
             return sum;
         }, { kip: 0, thb: 0, usd: 0, cny: 0 });
     }, [membersWithTotalDeposits]);
+    
+    const monthlyTotalDeposits = useMemo(() => {
+        const start = startOfMonth(displayMonth);
+        const end = endOfMonth(displayMonth);
+        const monthlyDeposits = deposits.filter(d => isWithinInterval(d.date, { start, end }));
+
+        return monthlyDeposits.reduce((sum, d) => {
+            sum.kip += d.kip || 0;
+            sum.thb += d.thb || 0;
+            sum.usd += d.usd || 0;
+            sum.cny += d.cny || 0;
+            return sum;
+        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+    }, [deposits, displayMonth]);
+
 
     const handleAddMember = async (member: Omit<CooperativeMember, 'id' | 'createdAt'>) => {
         await addCooperativeMember(member);
@@ -300,7 +315,7 @@ export default function CooperativeMembersPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 mb-4">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">ສະມາຊິກທັງໝົດ</CardTitle>
@@ -317,6 +332,16 @@ export default function CooperativeMembersPage() {
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-x-4">
                             {Object.entries(grandTotalDeposits).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">ຍອດຝາກປະຈຳເດືອນ</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-x-4">
+                            {Object.entries(monthlyTotalDeposits).filter(([,v]) => v !== 0).map(([c, v]) => <p key={c} className={`text-sm font-bold ${v < 0 ? 'text-red-600' : ''}`}>{c.toUpperCase()}: {formatCurrency(v)}</p>)}
+                            {Object.values(monthlyTotalDeposits).every(v => v === 0) && <p className="text-sm text-muted-foreground">ບໍ່ມີເງິນຝາກໃນເດືອນນີ້</p>}
                         </CardContent>
                     </Card>
                 </div>
