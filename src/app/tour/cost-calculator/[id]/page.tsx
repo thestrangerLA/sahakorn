@@ -13,7 +13,7 @@ export default function PageRemoved() {
       <Card className="w-full max-w-md">
           <CardHeader>
               <CardTitle className="text-2xl font-bold mb-4">Page Removed</CardTitle>
-              <CardDescription>This page has been removed as per the user's request to simplify the app.</CardDescription>
+              <CardDescription>This page has been removed to simplify the app.</CardDescription>
           </CardHeader>
           <CardContent>
               <Button asChild>

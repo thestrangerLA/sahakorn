@@ -1,12 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp, Building } from "lucide-react"
+import { Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp, Building } from "lucide-react"
 import Link from 'next/link'
-import { Button } from "@/components/ui/button"
 
-
-export default function CooperativePage() {
+export default function CooperativeDashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -46,12 +44,12 @@ export default function CooperativePage() {
           <Link href="/tee/cooperative/members">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ ແລະ ເງິນຝາກ</CardTitle>
+                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ และ ເງິນຝາກ</CardTitle>
                 <Users className="h-8 w-8 text-primary" />
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ຈັດການຂໍ້ມູນສະມາຊິກ ແລະ ບັນທຶກເງິນຝາກ
+                  ຈັດການຂໍ້ມູນສະມາຊິກ และ ບັນທຶກເງິນຝາກ
                 </p>
               </CardContent>
             </Card>
@@ -64,7 +62,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ສ້າງ ແລະ ຕິດຕາມສັນຍາສິນເຊື່ອ
+                  ສ້າງ และ ຕິດຕາມສັນຍາສິນເຊື່ອ
                 </p>
               </CardContent>
             </Card>
@@ -77,7 +75,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ບັນທຶກ ແລະ ຕິດຕາມການລົງທຶນຂອງສະຫະກອນ
+                  ບັນທຶກ และ ຕິດຕາມການລົງທຶນຂອງສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
@@ -90,7 +88,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ບັນທຶກ ແລະ ຕິດຕາມສິນຊັບຄົງທີ່
+                  ບັນທຶກ และ ຕິດຕາມສິນຊັບຄົງທີ່
                 </p>
               </CardContent>
             </Card>
@@ -103,7 +101,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ເບິ່ງລາຍງານ ແລະ ສະຫຼຸບຜົນປະກອບການ
+                  ເບິ່ງລາຍງານ และ ສະຫຼຸບຜົນປະກອບການ
                 </p>
               </CardContent>
             </Card>
