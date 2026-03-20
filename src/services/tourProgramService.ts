@@ -1,2 +1,2 @@
-// This service is no longer in use and its content has been removed.
+// This service has been deprecated and is no longer in use.
 export {};

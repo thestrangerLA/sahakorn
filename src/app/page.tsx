@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,7 +26,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍ ແລະ ເບິ່ງພາບລວມການເງິນຂອງສະຫະກອນ
+                  ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍ และ ເບິ່ງພາບລວມການເງິນຂອງສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
