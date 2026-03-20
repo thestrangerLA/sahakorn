@@ -1,4 +1,4 @@
-// This component has been removed to simplify the app.
-export default function RemovedComponent() {
+
+export default function RemovedPage() {
   return null;
 }
