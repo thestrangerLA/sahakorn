@@ -3,13 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 
+export async function generateStaticParams() {
+  return [];
+}
+
 export default function PageRemoved() {
   return (
     <div className="flex flex-col items-center justify-center h-screen text-center p-4">
       <Card className="w-full max-w-md">
           <CardHeader>
               <CardTitle className="text-2xl font-bold mb-4">Page Removed</CardTitle>
-              <CardDescription>This page has been removed.</CardDescription>
+              <CardDescription>This page has been removed to simplify the app.</CardDescription>
           </CardHeader>
           <CardContent>
               <Button asChild>
