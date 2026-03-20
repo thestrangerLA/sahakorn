@@ -1,45 +1,52 @@
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { getCooperativeMember } from '@/services/cooperativeMemberService';
+import type { Metadata } from 'next';
+import { getCooperativeMember, getAllCooperativeMemberIds, getCooperativeDepositsForMember } from '@/services/cooperativeMemberService';
 import MemberDetailPageClient from './client-page';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { CooperativeMember } from '@/lib/types';
 
-export default function MemberDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
-  const [member, setMember] = useState<CooperativeMember | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    if (id && id !== 'default') {
-        setLoading(true);
-        getCooperativeMember(id).then(memberData => {
-            setMember(memberData);
-            setLoading(false);
-        }).catch(err => {
-            console.error("Failed to fetch member:", err);
-            setLoading(false);
-        });
-    } else {
-        setLoading(false);
+export const dynamic = 'force-static';
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const ids = await getAllCooperativeMemberIds();
+    if (ids.length === 0) {
+      return [{ id: 'default' }];
     }
-  }, [id]);
-
-  if (loading) {
-    return (
-        <div className="flex flex-col items-center justify-center h-screen p-4">
-            <div className="w-full max-w-4xl space-y-4">
-                <Skeleton className="h-14 w-full" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-    );
+    return ids;
+  } catch (error) {
+    console.error("Error fetching static params for members:", error);
+    return [{ id: 'default' }];
   }
+}
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  if (params.id === 'default') {
+      return { title: 'Member Details' };
+  }
+  const member = await getCooperativeMember(params.id);
+  if (!member) {
+    return { title: 'Member Not Found' };
+  }
+  return {
+    title: `Member: ${member.name}`,
+    description: `Details for cooperative member ${member.name}`,
+  };
+}
+
+export default async function MemberDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
+
+  if (id === 'default') {
+      return (
+            <div className="flex flex-col items-center justify-center h-screen">
+                <p className="text-2xl font-semibold mb-4">Loading Member Details...</p>
+                <p>This is a placeholder page for static export. Please navigate from the members list.</p>
+            </div>
+      );
+  }
+
+  const member = await getCooperativeMember(id);
 
   if (!member) {
     return (
@@ -48,6 +55,8 @@ export default function MemberDetailPage() {
         </div>
     );
   }
-  
-  return <MemberDetailPageClient initialMember={member} initialDeposits={[]} />;
+
+  const initialDeposits = await getCooperativeDepositsForMember(id);
+
+  return <MemberDetailPageClient initialMember={member} initialDeposits={initialDeposits} />;
 }

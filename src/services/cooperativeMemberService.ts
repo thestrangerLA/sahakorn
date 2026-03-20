@@ -100,6 +100,28 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
     return null;
 };
 
+export const getCooperativeDepositsForMember = async (memberId: string): Promise<CooperativeDeposit[]> => {
+    const q = query(depositsCollectionRef, where("memberId", "==", memberId));
+    const querySnapshot = await getDocs(q);
+    const deposits: CooperativeDeposit[] = [];
+    querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        deposits.push({
+            id: doc.id,
+            ...data,
+            date: toDateSafe(data.date) || new Date(),
+            createdAt: toDateSafe(data.createdAt) || new Date(),
+            kip: data.kip || 0,
+            thb: data.thb || 0,
+            usd: data.usd || 0,
+            cny: data.cny || 0,
+        } as CooperativeDeposit);
+    });
+    deposits.sort((a, b) => (toDateSafe(b.date)?.getTime() ?? 0) - (toDateSafe(a.date)?.getTime() ?? 0));
+    return deposits;
+}
+
+
 export const listenToCooperativeDepositsForMember = (memberId: string, callback: (deposits: CooperativeDeposit[]) => void) => {
     const q = query(depositsCollectionRef, where("memberId", "==", memberId));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -110,13 +132,14 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
                 id: doc.id,
                 ...data,
                 date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
                 kip: data.kip || 0,
                 thb: data.thb || 0,
                 usd: data.usd || 0,
+                cny: data.cny || 0,
             } as CooperativeDeposit);
         });
-        // Sort on the client-side
-        deposits.sort((a, b) => b.date.getTime() - a.date.getTime());
+        deposits.sort((a, b) => (toDateSafe(b.date)?.getTime() ?? 0) - (toDateSafe(a.date)?.getTime() ?? 0));
         callback(deposits);
     });
     return unsubscribe;
